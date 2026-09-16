@@ -1,0 +1,39 @@
+# macOS and Python
+.DS_Store
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ipynb_checkpoints/
+.venv/
+venv/
+
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+.streamlit/secrets.toml
+config/local.*
+*.log
+
+# Local-only directories
+/data/
+/research_sources/
+/outputs/private/
+/models/
+/artifacts/
+/tmp/
+
+# Data, source documents, and serialized models
+*.csv
+*.tsv
+*.parquet
+*.zip
+*.docx
+*.pdf
+*.pkl
+*.pickle
+*.joblib
+*.pt
+*.pth
+*.npy
+*.npz
