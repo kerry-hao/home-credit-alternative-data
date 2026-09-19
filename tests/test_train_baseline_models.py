@@ -189,12 +189,19 @@ def test_sample_weighted_epoch_loss_differs_from_unweighted_batch_mean():
 def test_resume_requires_matching_hashes_and_uncorrupted_artifacts(tmp_path):
     model = tmp_path / "model.bin"; model.write_bytes(b"model")
     prediction = tmp_path / "prediction.parquet"; prediction.write_bytes(b"prediction")
+    reload_sample = tmp_path / "reload.parquet"; reload_sample.write_bytes(b"reload")
     status = tmp_path / "status.json"
-    atomic_json(status, {"status": "COMPLETE", "config_hash": "abc", "artifacts": [
-        {"path": str(model), "sha256": sha256_file(model)},
-        {"path": str(prediction), "sha256": sha256_file(prediction)},
-    ]})
-    assert combination_is_complete(status, "abc")
+    atomic_json(status, {
+        "status": "COMPLETE", "config_hash": "abc", "comparison": {}, "candidates": [], "history": [],
+        "registry": {"model_id": "logit_T", "family": "logit", "ordered_predictors": ["x"],
+                     "representation": "linear_nn", "preprocessor_sha256": "frozen"},
+        "artifacts": [
+            {"kind": "model", "path": str(model), "sha256": sha256_file(model)},
+            {"kind": "prediction_part", "path": str(prediction), "sha256": sha256_file(prediction)},
+            {"kind": "reload_sample", "path": str(reload_sample), "sha256": sha256_file(reload_sample)},
+        ],
+    })
+    assert combination_is_complete(status, "abc", "logit_T")
     assert not combination_is_complete(status, "different")
     model.write_bytes(b"corrupt")
     assert not combination_is_complete(status, "abc")

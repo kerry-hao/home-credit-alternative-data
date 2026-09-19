@@ -62,6 +62,18 @@ from threadpoolctl import threadpool_info, threadpool_limits
 from torch import nn
 from torch.utils.data import DataLoader, TensorDataset
 
+from task09_reliability import (
+    EarlyStoppingTracker,
+    FamilyImplementationError,
+    SharedContractError,
+    VerificationError,
+    completion_status_check,
+    run_isolated_combinations,
+    validate_prediction_frame,
+    validate_registry,
+    weighted_epoch_mean,
+)
+
 # The installed macOS PyTorch/OpenMP combination segfaults when this mixed
 # sklearn/LightGBM process executes the MLP at four intra-op threads.  One
 # PyTorch intra-op thread is the verified stable setting and remains within the
@@ -70,6 +82,8 @@ torch.set_num_threads(1)
 
 
 VERSION = "1.0.0"
+FITTING_SEMANTICS_VERSION = "task09_fit_select_infer_v1"
+VERIFIER_VERSION = "task09_saved_run_verifier_v2"
 SEED = 20260921
 EXPECTED_N = 1_526_659
 EXPECTED_TRAIN = 1_068_661
@@ -265,11 +279,15 @@ def torch_load_state(path: Path) -> dict[str, torch.Tensor]:
 
 def predict_mlp(model: TabularMLP, values: np.ndarray, batch_size: int = 16384) -> np.ndarray:
     model.eval()
+    if not all(torch.isfinite(parameter).all() for parameter in model.parameters()):
+        raise FloatingPointError("Nonfinite selected MLP parameter")
     result = np.empty(len(values), dtype=np.float64)
     with torch.inference_mode():
         for start in range(0, len(values), batch_size):
             stop = min(len(values), start + batch_size)
             logits = model(torch.from_numpy(values[start:stop].astype(np.float32, copy=False)))
+            if not torch.isfinite(logits).all():
+                raise FloatingPointError(f"Nonfinite MLP inference logits at rows {start}:{stop}")
             result[start:stop] = torch.sigmoid(logits).squeeze(1).cpu().numpy().astype(np.float64)
     return result
 
@@ -286,6 +304,28 @@ class Contract:
     membership_fingerprint: str
     training_key_fingerprint: str
     input_hashes: dict[str, str]
+
+
+def load_authorized_labels(
+    manifest_path: Path,
+    manifest: pd.DataFrame,
+    train_positions: np.ndarray,
+    tuning_positions: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Load target only through explicit TRAIN/tuning predicate pushdown."""
+    train_labeled = pd.read_parquet(
+        manifest_path, columns=["case_id", "base_order", "target", "outer_split"],
+        filters=[("outer_split", "==", "train")],
+    ).sort_values("base_order", kind="stable")
+    tune_labeled = pd.read_parquet(
+        manifest_path, columns=["case_id", "base_order", "target", "validation_role"],
+        filters=[("validation_role", "==", "validation_tuning")],
+    ).sort_values("base_order", kind="stable")
+    if not np.array_equal(train_labeled.base_order.to_numpy(), train_positions) or not np.array_equal(tune_labeled.base_order.to_numpy(), tuning_positions):
+        raise SharedContractError("Filtered label rows do not align with saved base_order")
+    if not np.array_equal(train_labeled.case_id.to_numpy(), manifest.iloc[train_positions].case_id.to_numpy()) or not np.array_equal(tune_labeled.case_id.to_numpy(), manifest.iloc[tuning_positions].case_id.to_numpy()):
+        raise SharedContractError("Filtered label keys do not align with manifest")
+    return train_labeled.target.to_numpy(np.int8), tune_labeled.target.to_numpy(np.int8)
 
 
 def load_contract(data_root: Path) -> Contract:
@@ -313,21 +353,9 @@ def load_contract(data_root: Path) -> Contract:
         raise RuntimeError(f"Fingerprint mismatch: membership={membership_fp}, training={training_key_fp}")
     if len(train_positions) != EXPECTED_TRAIN or len(tuning_positions) != EXPECTED_TUNING:
         raise RuntimeError("Saved role counts do not match the frozen contract")
-    # Predicate pushdown reads labels only for the two authorized development roles.
-    train_labeled = pd.read_parquet(
-        manifest_path, columns=["case_id", "base_order", "target", "outer_split"],
-        filters=[("outer_split", "==", "train")],
-    ).sort_values("base_order", kind="stable")
-    tune_labeled = pd.read_parquet(
-        manifest_path, columns=["case_id", "base_order", "target", "validation_role"],
-        filters=[("validation_role", "==", "validation_tuning")],
-    ).sort_values("base_order", kind="stable")
-    if not np.array_equal(train_labeled.base_order.to_numpy(), train_positions) or not np.array_equal(tune_labeled.base_order.to_numpy(), tuning_positions):
-        raise RuntimeError("Filtered label rows do not align with saved base_order")
-    if not np.array_equal(train_labeled.case_id.to_numpy(), manifest.iloc[train_positions].case_id.to_numpy()) or not np.array_equal(tune_labeled.case_id.to_numpy(), manifest.iloc[tuning_positions].case_id.to_numpy()):
-        raise RuntimeError("Filtered label keys do not align with manifest")
-    train_labels = train_labeled.target.to_numpy(np.int8)
-    tuning_labels = tune_labeled.target.to_numpy(np.int8)
+    train_labels, tuning_labels = load_authorized_labels(
+        manifest_path, manifest, train_positions, tuning_positions,
+    )
     if set(np.unique(train_labels)) != {0, 1} or set(np.unique(tuning_labels)) != {0, 1}:
         raise RuntimeError("TRAIN/tuning labels are not complete binary classes")
     if int(train_labels.sum()) != EXPECTED_TRAIN_POS or int(tuning_labels.sum()) != EXPECTED_TUNING_POS:
@@ -989,7 +1017,8 @@ def run_mlp_combination(
     candidate_dir = model_dir / "candidates" / candidate_id; candidate_dir.mkdir(parents=True, exist_ok=True)
     checkpoint = candidate_dir / "best_state.pt"
     history_rows: list[dict[str, Any]] = []
-    best_ap = -math.inf; best_loss = math.inf; best_epoch = 0; patience_reference = -math.inf; patience = 0
+    tracker = EarlyStoppingTracker(patience_limit=5, min_reset_delta=0.0001)
+    best_epoch = 0
     best_sample_expected: np.ndarray | None = None
     total_clipped = 0; maximum_grad_norm = 0.0; total_updates = 0
     sample_x = np.ascontiguousarray(np.vstack([x_train[:32], x_tune[:32]]), dtype=np.float32)
@@ -999,7 +1028,7 @@ def run_mlp_combination(
     status = "SUCCESS"; error = ""
     try:
         for epoch in range(1, 31):
-            epoch_start = time.perf_counter(); model.train(); weighted_loss = 0.0; seen = 0
+            epoch_start = time.perf_counter(); model.train(); batch_loss_means: list[float] = []; batch_sizes: list[int] = []
             epoch_clipped = 0; epoch_max_grad = 0.0
             for batch_index, (batch_x, batch_y) in enumerate(train_loader, start=1):
                 optimizer.zero_grad(set_to_none=True)
@@ -1017,29 +1046,29 @@ def run_mlp_combination(
                 if batch_index % 50 == 0:
                     if not all(torch.isfinite(parameter).all() for parameter in model.parameters()):
                         raise FloatingPointError(f"Nonfinite MLP parameter epoch={epoch} batch={batch_index}")
-                weighted_loss += float(loss.item()) * len(batch_x); seen += len(batch_x)
+                batch_loss_means.append(float(loss.item())); batch_sizes.append(len(batch_x))
                 if time.perf_counter() - epoch_start > 30 and batch_index % 100 == 0:
                     log(f"PROGRESS {combination} epoch={epoch} batch={batch_index}/{len(train_loader)}", log_path)
-            train_loss = weighted_loss / seen
+            train_loss = weighted_epoch_mean(batch_loss_means, batch_sizes)
+            if not math.isfinite(train_loss):
+                raise FloatingPointError(f"Nonfinite epoch loss epoch={epoch}")
             probability = predict_mlp(model, x_tune)
             metrics = official_metrics(y_tune, probability)
-            improved_best = metrics["average_precision"] > best_ap or (
-                metrics["average_precision"] == best_ap and (metrics["log_loss"] < best_loss or (metrics["log_loss"] == best_loss and epoch < best_epoch))
+            stopping = tracker.update(
+                epoch=epoch,
+                average_precision=metrics["average_precision"],
+                log_loss=metrics["log_loss"],
             )
-            if improved_best:
-                best_ap = metrics["average_precision"]; best_loss = metrics["log_loss"]; best_epoch = epoch
+            if stopping["is_best"]:
+                best_epoch = tracker.best_epoch
                 model.eval(); best_sample_expected = predict_mlp(model, sample_x)
                 frozen = {name: tensor.detach().cpu().clone() for name, tensor in model.state_dict().items()}
                 save_torch_atomic(checkpoint, frozen)
-            if metrics["average_precision"] >= patience_reference + 0.0001:
-                patience_reference = metrics["average_precision"]; patience = 0
-            else:
-                patience += 1
             epoch_values = {
                 "train_bce_loss": train_loss, "average_precision": metrics["average_precision"],
                 "roc_auc": metrics["roc_auc"], "log_loss": metrics["log_loss"], "brier_score": metrics["brier_score"],
                 "learning_rate": optimizer.param_groups[0]["lr"], "gradient_clip_count": epoch_clipped,
-                "max_preclip_gradient_norm": epoch_max_grad, "patience_counter": patience,
+                "max_preclip_gradient_norm": epoch_max_grad, "patience_counter": tracker.patience_count,
             }
             for metric_name, value in epoch_values.items():
                 history_rows.append({
@@ -1049,10 +1078,10 @@ def run_mlp_combination(
                 })
             log(
                 f"EPOCH {combination} {epoch} train_loss={train_loss:.8f} tuning_AP={metrics['average_precision']:.8f} "
-                f"log_loss={metrics['log_loss']:.8f} best_epoch={best_epoch} patience={patience} elapsed={time.perf_counter()-epoch_start:.1f}s",
+                f"log_loss={metrics['log_loss']:.8f} best_epoch={best_epoch} patience={tracker.patience_count} elapsed={time.perf_counter()-epoch_start:.1f}s",
                 log_path,
             )
-            if patience >= 5:
+            if stopping["should_stop"]:
                 break
         if not checkpoint.is_file() or best_sample_expected is None:
             raise RuntimeError("MLP did not produce a valid best checkpoint")
@@ -1115,17 +1144,71 @@ def run_mlp_combination(
     return comparison, [candidate_row], history_rows, registry
 
 
-def combination_is_complete(status_path: Path, config_hash: str) -> bool:
-    if not status_path.is_file():
-        return False
-    status = json.loads(status_path.read_text(encoding="utf-8"))
-    if status.get("status") != "COMPLETE" or status.get("config_hash") != config_hash:
-        return False
-    for item in status.get("artifacts", []):
-        path = Path(item["path"])
-        if not path.is_file() or sha256_file(path) != item["sha256"]:
-            return False
-    return True
+def combination_is_complete(status_path: Path, config_hash: str, expected_model_id: str | None = None) -> bool:
+    complete, _ = completion_status_check(status_path, config_hash, expected_model_id)
+    return complete
+
+
+def combination_is_reusable(
+    status_path: Path, config_hash: str, expected_model_id: str, contract: Contract,
+    tune_meta: pd.DataFrame,
+) -> tuple[bool, str]:
+    """Perform strict status, tuning-prediction, and reload checks before skip."""
+    complete, reason = completion_status_check(status_path, config_hash, expected_model_id)
+    if not complete:
+        return False, reason
+    try:
+        status = json.loads(status_path.read_text(encoding="utf-8"))
+        registry = status["registry"]
+        family, representation, expected_features = feature_contract_for(expected_model_id, contract.feature_sets)
+        if registry.get("family") != family or registry.get("representation") != representation:
+            return False, "family/representation mismatch"
+        if registry.get("ordered_predictors") != expected_features:
+            return False, "ordered features incompatible with authoritative feature lists"
+        artifacts = {item["kind"]: Path(item["path"]) for item in status["artifacts"]}
+        part = pd.read_parquet(artifacts["prediction_part"])
+        probability_column = PROBABILITY_COLUMNS[expected_model_id]
+        expected_columns = ["case_id", "base_order", "target", probability_column]
+        if list(part.columns) != expected_columns or len(part) != len(tune_meta):
+            return False, "prediction part schema/row count mismatch"
+        if not np.array_equal(part.case_id.to_numpy(), tune_meta.case_id.to_numpy()):
+            return False, "prediction part case_id alignment mismatch"
+        if not np.array_equal(part.base_order.to_numpy(), tune_meta.base_order.to_numpy()):
+            return False, "prediction part base_order alignment mismatch"
+        if not np.array_equal(part.target.to_numpy(np.int8), contract.tuning_labels):
+            return False, "prediction part target alignment mismatch"
+        probability = part[probability_column]
+        if probability.dtype != np.dtype("float64") or probability.isna().any() or not np.isfinite(probability.to_numpy()).all() or not probability.between(0, 1).all():
+            return False, "prediction part probability contract mismatch"
+        sample = pd.read_parquet(artifacts["reload_sample"])
+        required = ["case_id", "base_order", *expected_features, "expected_probability_before_serialization"]
+        if list(sample.columns) != required or len(sample) != 64 or sample.case_id.duplicated().any():
+            return False, "reload sample schema/row count mismatch"
+        values = sample[expected_features].to_numpy(np.float64 if family == "logit" else np.float32, copy=True)
+        model_path = artifacts["model"]
+        if family == "logit":
+            model = joblib.load(model_path)
+            if list(model.classes_) != [0, 1] or model.n_features_in_ != len(expected_features):
+                return False, "reloaded Logit class/input mismatch"
+            actual = class_one_probability(model, values)
+        elif family == "lightgbm":
+            model = lgb.Booster(model_file=str(model_path))
+            iteration = int(registry["selected_iteration_or_epoch"])
+            if model.num_feature() != len(expected_features) or model.current_iteration() != iteration:
+                return False, "reloaded LightGBM input/iteration mismatch"
+            actual = model.predict(values, num_iteration=iteration)
+        else:
+            architecture = json.loads(artifacts["architecture"].read_text(encoding="utf-8"))
+            if architecture.get("input_dim") != len(expected_features):
+                return False, "reloaded MLP architecture mismatch"
+            model = TabularMLP(len(expected_features)); model.load_state_dict(torch_load_state(model_path)); model.eval()
+            actual = predict_mlp(model, values.astype(np.float32, copy=False))
+        expected = sample.expected_probability_before_serialization.to_numpy(np.float64)
+        if not np.isfinite(actual).all() or float(np.max(np.abs(np.asarray(actual, np.float64) - expected))) > 1e-6:
+            return False, "fresh reload-sample inference mismatch"
+    except Exception as exc:
+        return False, f"reuse verification failed: {type(exc).__name__}: {exc}"
+    return True, "status, artifacts, tuning alignment, and fresh reload inference verified"
 
 
 def load_completed(status_path: Path) -> tuple[dict[str, Any], list[dict[str, Any]], list[dict[str, Any]], dict[str, Any]]:
@@ -1136,13 +1219,15 @@ def load_completed(status_path: Path) -> tuple[dict[str, Any], list[dict[str, An
 def persist_combination_status(
     path: Path, config_hash: str, comparison: dict[str, Any], candidates: list[dict[str, Any]],
     history: list[dict[str, Any]], registry: dict[str, Any], prediction_part: Path,
+    reload_sample: Path,
 ) -> None:
     artifacts = [
-        {"path": registry["model_path"], "sha256": sha256_file(Path(registry["model_path"]))},
-        {"path": str(prediction_part), "sha256": sha256_file(prediction_part)},
+        {"kind": "model", "path": registry["model_path"], "sha256": sha256_file(Path(registry["model_path"]))},
+        {"kind": "prediction_part", "path": str(prediction_part), "sha256": sha256_file(prediction_part)},
+        {"kind": "reload_sample", "path": str(reload_sample), "sha256": sha256_file(reload_sample)},
     ]
     if registry.get("architecture_path"):
-        artifacts.append({"path": registry["architecture_path"], "sha256": sha256_file(Path(registry["architecture_path"]))})
+        artifacts.append({"kind": "architecture", "path": registry["architecture_path"], "sha256": sha256_file(Path(registry["architecture_path"]))})
     atomic_json(path, {
         "status": "COMPLETE", "completed_at": utc_now(), "config_hash": config_hash,
         "comparison": comparison, "candidates": candidates, "history": history,
@@ -1341,28 +1426,167 @@ def verify_saved_run(data_root: Path, run_id: str) -> dict[str, Any]:
     interim_dir = data_root / f"interim/task09/{run_id}"
     models_dir = data_root / f"models/task09/{run_id}"
     registry_path = audit_dir / "selected_model_registry.json"
-    if not registry_path.is_file():
-        raise FileNotFoundError(registry_path)
+    run_config_path = audit_dir / "run_config.json"
+    comparison_path = audit_dir / "model_comparison.csv"
+    candidate_path = audit_dir / "model_candidates.csv"
+    history_path = audit_dir / "training_history.csv"
+    prediction_path = interim_dir / "tuning_predictions.parquet"
+    for path in (registry_path, run_config_path, comparison_path, candidate_path, history_path, prediction_path):
+        if not path.is_file():
+            raise FileNotFoundError(path)
+    run_config = json.loads(run_config_path.read_text(encoding="utf-8"))
+    expected_models = list(run_config.get("models", []))
+    if not expected_models or len(expected_models) != len(set(expected_models)) or any(model not in MODEL_ORDER for model in expected_models):
+        raise VerificationError(f"Invalid expected model set in original run config: {expected_models}")
+    stored_config_hash = run_config.get("config_hash")
+    payload = dict(run_config); payload.pop("config_hash", None)
+    recomputed_config_hash = hashlib.sha256(canonical_json(payload).encode()).hexdigest()
+    if stored_config_hash != recomputed_config_hash:
+        raise VerificationError("Original run_config canonical hash does not reproduce")
+
+    contract = load_contract(data_root)
+    for path, expected_hash in run_config.get("input_hashes", {}).items():
+        source_path = Path(path)
+        if not source_path.is_file() or sha256_file(source_path) != expected_hash:
+            raise VerificationError(f"Original immutable input checksum mismatch: {source_path}")
     registry = json.loads(registry_path.read_text(encoding="utf-8"))
-    predictions = pd.read_parquet(interim_dir / "tuning_predictions.parquet")
-    results = []
+    registry_checks = validate_registry(registry, expected_models)
+    if registry.get("status") not in {"COMPLETE", "COMPLETE_REQUESTED_SUBSET", "VERIFY_PENDING"}:
+        raise VerificationError(f"Registry aggregate status is not complete: {registry.get('status')}")
+    if registry.get("membership_fingerprint") != contract.membership_fingerprint or registry.get("training_key_fingerprint") != contract.training_key_fingerprint:
+        raise VerificationError("Registry membership fingerprints do not match authoritative saved membership")
+
+    predictions = pd.read_parquet(prediction_path)
+    tune_meta = contract.manifest.iloc[contract.tuning_positions][["case_id", "base_order"]].reset_index(drop=True)
+    prediction_checks = validate_prediction_frame(
+        predictions, tune_meta, contract.tuning_labels, expected_models, PROBABILITY_COLUMNS,
+    )
+    original_comparison = pd.read_csv(comparison_path).set_index("model_id")
+    results: list[dict[str, Any]] = []
+    metric_rows: list[dict[str, Any]] = []
     for item in registry["models"]:
+        model_id = item["model_id"]
+        family, representation, expected_features = feature_contract_for(model_id, contract.feature_sets)
+        features = item["ordered_predictors"]
+        if family != item["family"] or representation != item["representation"] or features != expected_features:
+            raise VerificationError(f"Registry family/representation/features mismatch: {model_id}")
+        if item["fit_membership_fingerprint"] != contract.training_key_fingerprint:
+            raise VerificationError(f"TRAIN fingerprint mismatch: {model_id}")
+        tuning_fp = sha256_text(tune_meta.case_id)
+        if item["tuning_membership_fingerprint"] != tuning_fp:
+            raise VerificationError(f"Tuning fingerprint mismatch: {model_id}")
+        preprocessor_path = Path(item["preprocessor_reference"])
+        if preprocessor_path != data_root / "interim/task08_followup/preprocessing/preprocessor.json":
+            raise VerificationError(f"Unexpected preprocessor reference: {model_id}")
+        if sha256_file(preprocessor_path) != item["preprocessor_sha256"]:
+            raise VerificationError(f"Preprocessor checksum mismatch: {model_id}")
         model_path = Path(item["model_path"])
         checksum_ok = sha256_file(model_path) == item["model_sha256"]
-        sample = pd.read_parquet(interim_dir / "reload_samples" / f"{item['model_id']}.parquet")
-        features = item["ordered_predictors"]
-        values = sample[features].to_numpy(np.float64 if item["family"] == "logit" else np.float32, copy=True)
-        if item["family"] == "logit":
-            probability = class_one_probability(joblib.load(model_path), values)
-        elif item["family"] == "lightgbm":
-            probability = lgb.Booster(model_file=str(model_path)).predict(values, num_iteration=int(item["selected_iteration_or_epoch"]))
+        if not checksum_ok:
+            raise VerificationError(f"Selected model checksum mismatch: {model_id}")
+        sample_path = interim_dir / "reload_samples" / f"{model_id}.parquet"
+        if not sample_path.is_file():
+            raise VerificationError(f"Reload sample missing: {model_id}")
+        sample = pd.read_parquet(sample_path)
+        required_sample = ["case_id", "base_order", *features, "expected_probability_before_serialization"]
+        if list(sample.columns) != required_sample or len(sample) != 64 or sample.case_id.duplicated().any():
+            raise VerificationError(f"Reload sample schema/row contract failed: {model_id}")
+        sample_values = sample[features].to_numpy(np.float64 if family == "logit" else np.float32, copy=True)
+        matrix_path = data_root / f"interim/task08_followup/{'gbdt_inputs.parquet' if representation == 'gbdt' else 'linear_nn_inputs.parquet'}"
+        tuning_values, tuning_info = load_matrix_rows(
+            matrix_path, features, contract.tuning_positions, contract.manifest.case_id.to_numpy(),
+            np.float64 if family == "logit" else np.float32,
+        )
+        if tuning_info["contains_infinity"] or (representation == "linear_nn" and tuning_info["contains_nan"]):
+            raise VerificationError(f"Tuning matrix numeric contract failed: {model_id}")
+        if family == "logit":
+            model = joblib.load(model_path)
+            if list(model.classes_) != [0, 1] or model.n_features_in_ != len(features):
+                raise VerificationError(f"Logit class/input dimension mismatch: {model_id}")
+            if not np.isfinite(model.coef_).all() or not np.isfinite(model.intercept_).all():
+                raise VerificationError(f"Nonfinite Logit parameter: {model_id}")
+            sample_probability = class_one_probability(model, sample_values)
+            probability = class_one_probability(model, tuning_values)
+        elif family == "lightgbm":
+            model = lgb.Booster(model_file=str(model_path))
+            if model.num_feature() != len(features) or model.current_iteration() != int(item["selected_iteration_or_epoch"]):
+                raise VerificationError(f"LightGBM dimension/selected iteration mismatch: {model_id}")
+            sample_probability = model.predict(sample_values, num_iteration=int(item["selected_iteration_or_epoch"]))
+            probability = model.predict(tuning_values, num_iteration=int(item["selected_iteration_or_epoch"]))
         else:
-            model = TabularMLP(len(features)); model.load_state_dict(torch_load_state(model_path)); model.eval(); probability = predict_mlp(model, values.astype(np.float32))
-        diff = float(np.max(np.abs(probability - sample.expected_probability_before_serialization.to_numpy(np.float64))))
-        results.append({"model_id": item["model_id"], "checksum_ok": checksum_ok, "reload_max_abs_difference": diff, "status": "PASS" if checksum_ok and diff <= 1e-6 else "FAIL"})
+            architecture_path = Path(item.get("architecture_path", ""))
+            if not architecture_path.is_file():
+                raise VerificationError(f"MLP architecture missing: {model_id}")
+            architecture = json.loads(architecture_path.read_text(encoding="utf-8"))
+            if architecture.get("input_dim") != len(features) or architecture.get("hidden_dims") != [64, 32] or architecture.get("output_dim") != 1:
+                raise VerificationError(f"MLP architecture mismatch: {model_id}")
+            model = TabularMLP(len(features)); model.load_state_dict(torch_load_state(model_path)); model.eval()
+            sample_probability = predict_mlp(model, sample_values.astype(np.float32, copy=False))
+            probability = predict_mlp(model, tuning_values.astype(np.float32, copy=False))
+        expected_sample = sample.expected_probability_before_serialization.to_numpy(np.float64)
+        sample_diff = np.abs(np.asarray(sample_probability, np.float64) - expected_sample)
+        existing = predictions[PROBABILITY_COLUMNS[model_id]].to_numpy(np.float64)
+        full_diff = np.abs(np.asarray(probability, np.float64) - existing)
+        relative = full_diff / np.maximum(np.abs(existing), np.finfo(np.float64).tiny)
+        metrics = official_metrics(contract.tuning_labels, probability)
+        reported = original_comparison.loc[model_id]
+        metric_diffs = {name: abs(float(metrics[name]) - float(reported[name])) for name in ("roc_auc", "average_precision", "log_loss", "brier_score")}
+        status = "PASS" if (
+            float(sample_diff.max()) <= 1e-6
+            and float(full_diff.max()) <= 1e-6
+            and all(value <= 1e-10 for value in metric_diffs.values())
+        ) else "FAIL"
+        result = {
+            "model_id": model_id, "family": family, "representation": representation,
+            "model_checksum_ok": checksum_ok, "model_sha256": item["model_sha256"],
+            "reload_sample_sha256": sha256_file(sample_path), "reload_sample_rows": len(sample),
+            "reload_sample_max_abs_difference": float(sample_diff.max()),
+            "full_tuning_rows": len(probability), "full_tuning_max_abs_difference": float(full_diff.max()),
+            "full_tuning_mean_abs_difference": float(full_diff.mean()),
+            "full_tuning_max_relative_difference": float(relative.max()),
+            "full_tuning_count_abs_gt_1e_6": int(np.count_nonzero(full_diff > 1e-6)),
+            "exact_zero_count": int(np.count_nonzero(np.asarray(probability) == 0)),
+            "exact_one_count": int(np.count_nonzero(np.asarray(probability) == 1)),
+            "metric_max_abs_difference": max(metric_diffs.values()), "status": status,
+        }
+        results.append(result)
+        metric_rows.append({"model_id": model_id, **metrics, **{f"reported_{key}": float(reported[key]) for key in metric_diffs},
+                            **{f"difference_{key}": value for key, value in metric_diffs.items()}, "status": status})
+        del tuning_values, model; gc.collect()
     if any(row["status"] != "PASS" for row in results):
-        raise RuntimeError("Saved run verification failed")
-    return {"status": "PASS", "models": results, "prediction_rows": len(predictions), "model_directory": str(models_dir)}
+        raise VerificationError("Full saved-model inference verification failed")
+
+    candidates = pd.read_csv(candidate_path)
+    histories = pd.read_csv(history_path)
+    selection_rows: list[dict[str, Any]] = []
+    for combination in expected_models:
+        family = combination.split("_", 1)[0]
+        if family in {"logit", "lightgbm"}:
+            group = candidates[candidates["combination"].eq(combination)].to_dict("records")
+            winner, _ = select_candidate(group, family)
+            actual = candidates.loc[candidates["combination"].eq(combination) & candidates["selected"].fillna(False), "candidate_id"].tolist()
+            passed = actual == [winner["candidate_id"]]
+            selection_rows.append({"model_id": combination, "check": "global_ap_band_selection", "expected": winner["candidate_id"],
+                                   "actual": actual[0] if len(actual) == 1 else actual, "status": "PASS" if passed else "FAIL"})
+        else:
+            ap_history = histories[(histories["combination"].eq(combination)) & histories["metric"].eq("average_precision")]
+            loss_history = histories[(histories["combination"].eq(combination)) & histories["metric"].eq("log_loss")][["step", "value"]].rename(columns={"value": "log_loss"})
+            joined = ap_history[["step", "value"]].rename(columns={"value": "average_precision"}).merge(loss_history, on="step", validate="one_to_one")
+            winner = joined.sort_values(["average_precision", "log_loss", "step"], ascending=[False, True, True]).iloc[0]
+            actual = int(candidates.loc[candidates["combination"].eq(combination), "best_epoch"].iloc[0])
+            passed = actual == int(winner["step"])
+            selection_rows.append({"model_id": combination, "check": "highest_ap_checkpoint", "expected": int(winner["step"]),
+                                   "actual": actual, "status": "PASS" if passed else "FAIL"})
+    if any(row["status"] != "PASS" for row in selection_rows):
+        raise VerificationError("Saved candidate/checkpoint selection verification failed")
+    return {
+        "status": "PASS", "verifier_version": VERIFIER_VERSION,
+        "run_id": run_id, "expected_models": expected_models,
+        "models": results, "metrics": metric_rows, "selection": selection_rows,
+        "registry_checks": registry_checks, "prediction_checks": prediction_checks,
+        "prediction_rows": len(predictions), "prediction_positive_count": int(predictions.target.sum()),
+        "model_directory": str(models_dir), "original_config_hash": stored_config_hash,
+    }
 
 
 def parse_args() -> argparse.Namespace:
@@ -1376,6 +1600,104 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--test-command", default="")
     parser.add_argument("--test-result", default="")
     return parser.parse_args()
+
+
+def persist_attempt_failure(
+    models_dir: Path, combination: str, status: str, reason: str, config_hash: str,
+    command: list[str], log_path: Path,
+) -> None:
+    """Append a failure attempt without replacing earlier attempt evidence."""
+    attempt_dir = models_dir / combination / "attempts"
+    attempt_dir.mkdir(parents=True, exist_ok=True)
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S.%fZ")
+    path = attempt_dir / f"{stamp}_{status.lower()}.json"
+    counter = 1
+    while path.exists():
+        path = attempt_dir / f"{stamp}_{counter}_{status.lower()}.json"
+        counter += 1
+    atomic_json(path, {
+        "attempt_id": path.stem, "combination": combination, "status": status,
+        "reason": reason, "config_hash": config_hash, "command": command,
+        "recorded_at": utc_now(),
+        "resume_scope": "combination-level only; incomplete candidates are not reused",
+    })
+    log(f"ATTEMPT {status} {combination}: {reason}; evidence={path}", log_path)
+
+
+def execute_one_combination(
+    combination: str, *, args: argparse.Namespace, data_root: Path, contract: Contract,
+    config_hash: str, models_dir: Path, interim_dir: Path, log_path: Path,
+    train_meta: pd.DataFrame, tune_meta: pd.DataFrame, effective_threads: int,
+) -> tuple[dict[str, Any], list[dict[str, Any]], list[dict[str, Any]], dict[str, Any], dict[str, Any] | None]:
+    """Run or strictly reuse one combination; shared input failures are explicit."""
+    family, representation, features = feature_contract_for(combination, contract.feature_sets)
+    status_path = models_dir / combination / "combination_status.json"
+    if args.resume:
+        reusable, reuse_reason = combination_is_reusable(status_path, config_hash, combination, contract, tune_meta)
+        if reusable:
+            log(f"RESUME verified skip {combination}: {reuse_reason}", log_path)
+            comparison, candidates, history, registry = load_completed(status_path)
+            return comparison, candidates, history, registry, None
+        log(f"RESUME rerun required {combination}: {reuse_reason}", log_path)
+
+    matrix_path = data_root / f"interim/task08_followup/{'gbdt_inputs.parquet' if representation == 'gbdt' else 'linear_nn_inputs.parquet'}"
+    dtype = np.float64 if family == "logit" else np.float32
+    load_start = time.perf_counter(); rss_start = ru_maxrss_bytes()
+    try:
+        x_train, train_info = load_matrix_rows(
+            matrix_path, features, contract.train_positions, contract.manifest.case_id.to_numpy(), dtype,
+        )
+        x_tune, tune_info = load_matrix_rows(
+            matrix_path, features, contract.tuning_positions, contract.manifest.case_id.to_numpy(), dtype,
+        )
+    except (FileNotFoundError, KeyError, ValueError, RuntimeError) as exc:
+        raise SharedContractError(f"{combination} matrix/feature contract failed: {exc}") from exc
+    if train_info["contains_infinity"] or tune_info["contains_infinity"]:
+        raise SharedContractError(f"Infinity found after conversion for {combination}")
+    if representation == "linear_nn" and (train_info["contains_nan"] or tune_info["contains_nan"]):
+        raise SharedContractError(f"NaN found in linear/NN input for {combination}")
+    resource_row = {
+        "scope": f"matrix_load::{combination}", "elapsed_seconds": time.perf_counter()-load_start,
+        "expected_array_bytes": int(x_train.nbytes+x_tune.nbytes), "train_shape": str(x_train.shape),
+        "tuning_shape": str(x_tune.shape), "dtype": str(x_train.dtype),
+        "ru_maxrss_bytes_start": rss_start, "ru_maxrss_bytes_end": ru_maxrss_bytes(),
+        "ru_maxrss_scope": "cumulative process peak; not per-model incremental RAM or total system memory",
+        "current_rss": None, "system_memory": None,
+    }
+    model_dir = models_dir / combination; model_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        if family == "logit":
+            comparison, candidates, history, registry = run_logit_combination(
+                combination, features, x_train, x_tune, contract.train_labels, contract.tuning_labels,
+                train_meta, tune_meta, model_dir, interim_dir, log_path, effective_threads,
+            )
+        elif family == "lightgbm":
+            comparison, candidates, history, registry = run_lightgbm_combination(
+                combination, features, x_train, x_tune, contract.train_labels, contract.tuning_labels,
+                train_meta, tune_meta, model_dir, interim_dir, log_path, effective_threads,
+            )
+        else:
+            comparison, candidates, history, registry = run_mlp_combination(
+                combination, features, x_train, x_tune, contract.train_labels, contract.tuning_labels,
+                train_meta, tune_meta, model_dir, interim_dir, log_path, effective_threads,
+            )
+    finally:
+        del x_train, x_tune
+        gc.collect()
+    registry.update({
+        "representation": representation,
+        "preprocessor_reference": str(data_root / "interim/task08_followup/preprocessing/preprocessor.json"),
+        "preprocessor_sha256": contract.input_hashes[str(data_root / "interim/task08_followup/preprocessing/preprocessor.json")],
+        "fit_membership_fingerprint": contract.training_key_fingerprint,
+        "tuning_membership_fingerprint": sha256_text(tune_meta.case_id),
+        "calibration_status": "NOT_FITTED", "decision_threshold_status": "NOT_SELECTED",
+    })
+    persist_combination_status(
+        status_path, config_hash, comparison, candidates, history, registry,
+        interim_dir / "prediction_parts" / f"{combination}.parquet",
+        interim_dir / "reload_samples" / f"{combination}.parquet",
+    )
+    return comparison, candidates, history, registry, resource_row
 
 
 def main() -> int:
@@ -1415,7 +1737,10 @@ def main() -> int:
             "threads": thread_config, "runtime_versions": runtime_versions(), "seed": SEED,
             "membership_fingerprint": contract.membership_fingerprint,
             "training_key_fingerprint": contract.training_key_fingerprint,
-            "input_hashes": contract.input_hashes, "training_script_sha256": script_hash,
+            "input_hashes": contract.input_hashes,
+            "full_training_source_sha256": script_hash,
+            "fitting_semantics_version": FITTING_SEMANTICS_VERSION,
+            "verifier_version": VERIFIER_VERSION,
             "selection_rule": "Global successful-candidate max AP; eligible AP >= maxAP-0.0001; lowest log loss; lower complexity; candidate ID.",
             "model_budgets": {
                 "logit": {"C": [0.01, 0.1, 1.0], "solver": "lbfgs", "max_iter": 1000, "retry_max_iter": 2000},
@@ -1438,65 +1763,42 @@ def main() -> int:
         all_candidates: list[dict[str, Any]] = []; all_history: list[dict[str, Any]] = []
         comparisons: list[dict[str, Any]] = []; registry_models: list[dict[str, Any]] = []
         resource_rows: list[dict[str, Any]] = []
+        def run_one(combination: str):
+            return execute_one_combination(
+                combination, args=args, data_root=data_root, contract=contract,
+                config_hash=config_hash, models_dir=models_dir, interim_dir=interim_dir,
+                log_path=log_path, train_meta=train_meta, tune_meta=tune_meta,
+                effective_threads=thread_config["effective_threads"],
+            )
+
+        def record_failure(combination: str, status: str, reason: str) -> None:
+            persist_attempt_failure(models_dir, combination, status, reason, config_hash, sys.argv, log_path)
+
+        execution = run_isolated_combinations(
+            selected, lambda name: feature_contract_for(name, contract.feature_sets)[0], run_one, record_failure,
+        )
+        successful: list[str] = []
+        combination_statuses: dict[str, str] = {}
         for combination in selected:
-            family, representation, features = feature_contract_for(combination, contract.feature_sets)
-            status_path = models_dir / combination / "combination_status.json"
-            if args.resume and combination_is_complete(status_path, config_hash):
-                log(f"RESUME verified skip {combination}", log_path)
-                comparison, candidates, history, registry = load_completed(status_path)
-            else:
-                matrix_path = data_root / f"interim/task08_followup/{'gbdt_inputs.parquet' if representation == 'gbdt' else 'linear_nn_inputs.parquet'}"
-                dtype = np.float64 if family == "logit" else np.float32
-                load_start = time.perf_counter(); rss_start = ru_maxrss_bytes()
-                x_train, train_info = load_matrix_rows(matrix_path, features, contract.train_positions, contract.manifest.case_id.to_numpy(), dtype)
-                x_tune, tune_info = load_matrix_rows(matrix_path, features, contract.tuning_positions, contract.manifest.case_id.to_numpy(), dtype)
-                if train_info["contains_infinity"] or tune_info["contains_infinity"]:
-                    raise RuntimeError(f"Infinity found after conversion for {combination}")
-                if representation == "linear_nn" and (train_info["contains_nan"] or tune_info["contains_nan"]):
-                    raise RuntimeError(f"NaN found in linear/NN input for {combination}")
-                resource_rows.append({
-                    "scope": f"matrix_load::{combination}", "elapsed_seconds": time.perf_counter()-load_start,
-                    "expected_array_bytes": int(x_train.nbytes+x_tune.nbytes), "train_shape": str(x_train.shape),
-                    "tuning_shape": str(x_tune.shape), "dtype": str(x_train.dtype),
-                    "ru_maxrss_bytes_start": rss_start, "ru_maxrss_bytes_end": ru_maxrss_bytes(),
-                    "ru_maxrss_scope": "cumulative process peak; not per-model incremental RAM or total system memory",
-                    "current_rss": None, "system_memory": None,
-                })
-                model_dir = models_dir / combination; model_dir.mkdir(parents=True, exist_ok=True)
-                if family == "logit":
-                    comparison, candidates, history, registry = run_logit_combination(
-                        combination, features, x_train, x_tune, contract.train_labels, contract.tuning_labels,
-                        train_meta, tune_meta, model_dir, interim_dir, log_path, thread_config["effective_threads"],
-                    )
-                elif family == "lightgbm":
-                    comparison, candidates, history, registry = run_lightgbm_combination(
-                        combination, features, x_train, x_tune, contract.train_labels, contract.tuning_labels,
-                        train_meta, tune_meta, model_dir, interim_dir, log_path, thread_config["effective_threads"],
-                    )
-                else:
-                    comparison, candidates, history, registry = run_mlp_combination(
-                        combination, features, x_train, x_tune, contract.train_labels, contract.tuning_labels,
-                        train_meta, tune_meta, model_dir, interim_dir, log_path, thread_config["effective_threads"],
-                    )
-                registry.update({
-                    "representation": representation,
-                    "preprocessor_reference": str(data_root / "interim/task08_followup/preprocessing/preprocessor.json"),
-                    "preprocessor_sha256": contract.input_hashes[str(data_root / "interim/task08_followup/preprocessing/preprocessor.json")],
-                    "fit_membership_fingerprint": contract.training_key_fingerprint,
-                    "tuning_membership_fingerprint": sha256_text(tune_meta.case_id),
-                    "calibration_status": "NOT_FITTED", "decision_threshold_status": "NOT_SELECTED",
-                })
-                persist_combination_status(
-                    status_path, config_hash, comparison, candidates, history, registry,
-                    interim_dir / "prediction_parts" / f"{combination}.parquet",
-                )
-                del x_train, x_tune; gc.collect()
+            outcome = execution[combination]
+            combination_statuses[combination] = outcome["status"]
+            if outcome["status"] != "COMPLETE":
+                continue
+            comparison, candidates, history, registry, resource_row = outcome["result"]
+            successful.append(combination)
             comparisons.append(comparison); all_candidates.extend(candidates); all_history.extend(history); registry_models.append(registry)
+            if resource_row is not None:
+                resource_rows.append(resource_row)
             atomic_csv(audit_dir / "model_candidates.csv", all_candidates)
             atomic_csv(audit_dir / "training_history.csv", all_history)
-            atomic_json(audit_dir / "selected_model_registry.json", {"run_id": args.run_id, "models": registry_models})
+            atomic_json(audit_dir / "selected_model_registry.json", {
+                "run_id": args.run_id, "status": "EXECUTION_IN_PROGRESS", "models": registry_models,
+                "combination_statuses": combination_statuses,
+            })
             log(f"DURABLE COMPLETE {combination}; moving to next combination", log_path)
-        predictions, prediction_audit = rebuild_predictions(interim_dir, selected, tune_meta, contract.tuning_labels)
+        if not successful:
+            raise RuntimeError("No requested combination completed")
+        predictions, prediction_audit = rebuild_predictions(interim_dir, successful, tune_meta, contract.tuning_labels)
         comparison_df, delta_df = make_comparison_tables(comparisons, predictions, float(contract.train_labels.mean()))
         atomic_csv(audit_dir / "model_comparison.csv", comparison_df)
         atomic_csv(audit_dir / "ad_increment_comparison.csv", delta_df)
@@ -1508,8 +1810,10 @@ def main() -> int:
         history_df = pd.DataFrame(all_history)
         plot_paths = create_plots(audit_dir, comparison_df, delta_df, history_df, predictions)
         write_docs(repo_root, audit_dir, comparison_df, delta_df, args.run_id)
+        all_requested_complete = successful == selected
+        final_success_status = "COMPLETE" if selected == MODEL_ORDER else "COMPLETE_REQUESTED_SUBSET"
         registry_payload = {
-            "run_id": args.run_id, "status": "COMPLETE" if selected == MODEL_ORDER else "COMPLETE_REQUESTED_SUBSET",
+            "run_id": args.run_id, "status": "VERIFY_PENDING",
             "membership_fingerprint": contract.membership_fingerprint,
             "training_key_fingerprint": contract.training_key_fingerprint,
             "models": registry_models,
@@ -1521,22 +1825,26 @@ def main() -> int:
             {"check": "train_tuning_counts_labels", "status": "PASS", "actual": f"{len(contract.train_labels)}/{contract.train_labels.sum()}; {len(contract.tuning_labels)}/{contract.tuning_labels.sum()}", "expected": f"{EXPECTED_TRAIN}/{EXPECTED_TRAIN_POS}; {EXPECTED_TUNING}/{EXPECTED_TUNING_POS}", "reason": "Only authorized development labels loaded."},
             {"check": "prepared_bytes_preserved", "status": "PASS", "actual": all(row["bytes_unchanged"] for row in corrections if not row["expected_change"]), "expected": True, "reason": "Matrix and learned preprocessor SHA-256 unchanged across report corrections."},
             {"check": "supplement_examples", "status": "PASS", "actual": len(supplement), "expected": "all comparisons PASS", "reason": "Real missing/zero/known/unseen and disclosed synthetic category paths."},
-            {"check": "all_requested_combinations", "status": "PASS", "actual": len(comparisons), "expected": len(selected), "reason": "Each requested combination durably selected, serialized, reloaded and predicted."},
+            {"check": "all_requested_combinations", "status": "PASS" if all_requested_complete else "FAIL", "actual": len(comparisons), "expected": len(selected), "reason": "Each requested combination must be durably selected, serialized, reloaded and predicted."},
             {"check": "saved_prediction_recompute", "status": "PASS", "actual": len(predictions), "expected": EXPECTED_TUNING, "reason": "Metrics independently recomputed from reopened merged tuning predictions."},
             {"check": "target_horizon", "status": "NOT_CHECKED", "actual": "competition binary label", "expected": "formal real-world horizon", "reason": "Not established by authorized evidence."},
             {"check": "prospective_time_stability", "status": "NOT_CHECKED", "actual": "random development split", "expected": "future-period evidence", "reason": "Chronological evaluation deferred."},
-            {"check": "tests", "status": "PASS" if args.test_result else "NOT_CHECKED", "actual": args.test_result or None, "expected": "focused and repository suite passed", "reason": args.test_command or "No command supplied"},
+            {"check": "tests", "status": "NOT_CHECKED", "actual": args.test_result or None,
+             "expected": "machine-readable command evidence with exit code zero and collected tests",
+             "reason": "Free-text --test-result is retained only as unverified human-supplied text; it cannot produce PASS."},
         ]
         atomic_csv(audit_dir / "validation_results.csv", validation_rows)
         summary = {
-            "task": "TASK_09_FIRST_MODEL_TRAINING", "status": "COMPLETE" if selected == MODEL_ORDER else "COMPLETE_REQUESTED_SUBSET",
+            "task": "TASK_09_FIRST_MODEL_TRAINING", "status": "VERIFY_PENDING",
             "run_id": args.run_id, "started_command": " ".join(sys.argv), "completed_at": utc_now(),
             "runtime_versions": runtime_versions(), "thread_configuration": thread_config,
-            "tests": {"command": args.test_command or None, "result": args.test_result or None},
+            "tests": {"status": "NOT_CHECKED", "command_text_unverified": args.test_command or None,
+                      "result_text_unverified": args.test_result or None,
+                      "reason": "Free text is not executable test evidence."},
             "split": {"train_rows": EXPECTED_TRAIN, "train_positive": EXPECTED_TRAIN_POS, "tuning_rows": EXPECTED_TUNING, "tuning_positive": EXPECTED_TUNING_POS},
             "fingerprints": {"membership": contract.membership_fingerprint, "training_keys": contract.training_key_fingerprint},
             "input_hashes": contract.input_hashes, "config_hash": config_hash,
-            "combination_statuses": {row["combination"]: "COMPLETE" for row in comparisons},
+            "combination_statuses": combination_statuses,
             "model_comparison": comparison_df.to_dict("records"), "ad_increment_comparison": delta_df.to_dict("records"),
             "resource_scope": "ru_maxrss is cumulative process peak; current RSS and total system memory unavailable in the standard-library telemetry used.",
             "plots": [str(p) for p in plot_paths],
@@ -1545,21 +1853,58 @@ def main() -> int:
         }
         atomic_json(audit_dir / "training_summary.json", summary)
         report_lines = [
-            "# Task 09 首批模型训练报告", "", f"状态：**{summary['status']}**。六组模型使用完整 outer TRAIN 拟合，并仅用 validation_tuning 选择；未读取校准/最终评估标签或生成其预测。", "",
+            "# Task 09 首批模型训练报告", "", f"状态：**{summary['status']}**。模型执行完成，最终保存产物核验尚未完成。", "",
             "## 调优集比较", "", markdown_table(comparison_df), "", "## AD 增量（T+AD 减 T）", "", markdown_table(delta_df), "",
             "这些是模型开发指标，不是最终独立评估。正的 AUC/AP 增量较好，负的 log loss/Brier 增量较好；不强制做有利解释。", "",
             "所有保存模型均完成重载样本与完整调优预测验证。没有拟合校准器、选择阈值或执行审批/经济模拟。随机划分不能证明未来时间稳定性、借款人独立性、因果效果或生产可用性。",
         ]
         atomic_text(audit_dir / "training_report.md", "\n".join(report_lines) + "\n")
+        if not all_requested_complete:
+            registry_payload["status"] = "PARTIAL_FAILED"
+            registry_payload["combination_statuses"] = combination_statuses
+            atomic_json(audit_dir / "selected_model_registry.json", registry_payload)
+            summary["status"] = "PARTIAL_FAILED"
+            summary["verification"] = {"status": "NOT_RUN", "reason": "Not all requested combinations completed"}
+            atomic_json(audit_dir / "training_summary.json", summary)
+            report_lines[2] = "状态：**PARTIAL_FAILED**。已完成组合已保留；未完成/阻断组合见机器可读状态，最终整体验证未运行。"
+            atomic_text(audit_dir / "training_report.md", "\n".join(report_lines) + "\n")
+            overall_status = "PARTIAL_FAILED"
+            log(f"Task09 PARTIAL_FAILED run_id={args.run_id} statuses={combination_statuses}", log_path)
+            return 1
+        overall_status = "VERIFY_PENDING"
         verification = verify_saved_run(data_root, args.run_id)
-        overall_status = summary["status"]
+        registry_payload["status"] = final_success_status
+        registry_payload["verification"] = {"status": verification["status"], "verifier_version": verification["verifier_version"]}
+        atomic_json(audit_dir / "selected_model_registry.json", registry_payload)
+        summary["status"] = final_success_status
+        summary["completed_at"] = utc_now()
+        summary["final_verification"] = {"status": verification["status"], "verifier_version": verification["verifier_version"]}
+        atomic_json(audit_dir / "training_summary.json", summary)
+        report_lines[2] = f"状态：**{final_success_status}**。六组模型使用完整 outer TRAIN 拟合，并仅用 validation_tuning 选择；最终保存产物核验通过。"
+        atomic_text(audit_dir / "training_report.md", "\n".join(report_lines) + "\n")
+        overall_status = final_success_status
         log(f"Task09 COMPLETE run_id={args.run_id} verification={verification['status']}", log_path)
         print(json.dumps({"status": overall_status, "run_id": args.run_id, "models": selected, "audit_dir": str(audit_dir), "interim_dir": str(interim_dir), "models_dir": str(models_dir)}, indent=2))
         return 0
     except KeyboardInterrupt:
-        atomic_json(audit_dir / "interrupted.json", {"status": "INTERRUPTED", "time": utc_now(), "resume_command": f"{sys.executable} -u {__file__} --data-root {data_root} --run-id {args.run_id} --models {args.models} --threads {args.threads} --resume"})
+        stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S.%fZ")
+        atomic_json(audit_dir / f"interrupted.{stamp}.json", {"status": "INTERRUPTED", "attempt_id": stamp, "time": utc_now(), "resume_command": f"{sys.executable} -u {__file__} --data-root {data_root} --run-id {args.run_id} --models {args.models} --threads {args.threads} --resume", "resume_scope": "combination-level only; prior attempt evidence is retained"})
         log("Task09 INTERRUPTED; completed artifacts retained", log_path); raise
     except Exception as exc:
+        summary_path = audit_dir / "training_summary.json"
+        if summary_path.is_file():
+            saved_summary = json.loads(summary_path.read_text(encoding="utf-8"))
+            if saved_summary.get("status") == "VERIFY_PENDING":
+                saved_summary["status"] = "VERIFY_FAILED"
+                saved_summary["verification_error"] = f"{type(exc).__name__}: {exc}"
+                atomic_json(summary_path, saved_summary)
+        registry_path = audit_dir / "selected_model_registry.json"
+        if registry_path.is_file():
+            saved_registry = json.loads(registry_path.read_text(encoding="utf-8"))
+            if saved_registry.get("status") == "VERIFY_PENDING":
+                saved_registry["status"] = "VERIFY_FAILED"
+                saved_registry["verification_error"] = f"{type(exc).__name__}: {exc}"
+                atomic_json(registry_path, saved_registry)
         atomic_json(audit_dir / "failure.json", {"status": overall_status, "time": utc_now(), "error": f"{type(exc).__name__}: {exc}", "traceback": traceback.format_exc(limit=50), "resume_command": f"{sys.executable} -u {__file__} --data-root {data_root} --run-id {args.run_id} --models {args.models} --threads {args.threads} --resume"})
         log(f"Task09 FAILED/PARTIAL: {type(exc).__name__}: {exc}", log_path); raise
     finally:

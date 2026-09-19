@@ -153,4 +153,6 @@ The six prespecified Logit, LightGBM, and MLP T/T+AD combinations were trained s
 ```
 
 See `docs/first_model_training.md` for the model contracts, aggregate results, and limitations.
+
+The bounded post-training review uses `scripts/verify_task09_post_review.py`; it preserves the original `first_full` artifacts and writes separate inference/test evidence under the external audit root.
 <!-- TASK09_RESULTS_END -->
