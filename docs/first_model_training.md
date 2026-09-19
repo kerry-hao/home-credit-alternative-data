@@ -1,0 +1,45 @@
+# 首批六组模型训练
+
+本任务在本机 `home_credit` Conda 环境中执行。Python 进程只使用外层 TRAIN 拟合参数，并只使用 `validation_tuning` 选择候选与早停。校准和最终评估仍保持冻结。
+
+## 六组比较的含义
+
+每个模型家族分别比较 T 与 T+AD，因此同一家族内的差异反映获批 AD 输入包（数值、来源/内容状态及缺失标志）的整体增量。Logit/MLP 使用保存的线性表示，LightGBM 使用保存的原尺度截尾表示；跨家族比较是完整建模管线比较，不是把算法效应与表示效应完全分离。
+
+验证调优集指标是开发结果，不是最终无偏泛化估计。随机划分不能证明未来时间稳定性、重复借款人独立性、因果影响或生产可用性。
+
+## 实际调优结果
+
+| 模型 | 特征集 | ROC AUC | AP | Log loss | Brier | 候选/检查点 |
+|---|---|---:|---:|---:|---:|---|
+| logit | T | 0.726410 | 0.085143 | 0.130076 | 0.029850 | C_0p01 / 92.0 |
+| logit | T_plus_AD | 0.744873 | 0.091723 | 0.128116 | 0.029704 | C_1p0 / 296.0 |
+| lightgbm | T | 0.769445 | 0.119307 | 0.124101 | 0.029090 | moderate / 416.0 |
+| lightgbm | T_plus_AD | 0.785143 | 0.131513 | 0.121967 | 0.028872 | moderate / 574.0 |
+| mlp | T | 0.760621 | 0.111715 | 0.125170 | 0.029228 | mlp_64_32 / 26.0 |
+| mlp | T_plus_AD | 0.774595 | 0.119899 | 0.123432 | 0.029072 | mlp_64_32 / 28.0 |
+
+AD 增量统一定义为 T+AD 减 T。AUC/AP 的正增量较好，log loss/Brier 的负增量较好。
+- logit: ΔAUC=+0.018463, ΔAP=+0.006580, Δlog loss=-0.001959, ΔBrier=-0.000146。
+- lightgbm: ΔAUC=+0.015697, ΔAP=+0.012207, Δlog loss=-0.002133, ΔBrier=-0.000218。
+- mlp: ΔAUC=+0.013975, ΔAP=+0.008185, Δlog loss=-0.001737, ΔBrier=-0.000156。
+
+## 方法与取舍
+
+- L2 Logit 提供透明、强正则化的线性基线；三个 C 使用同一小预算，按全局 AP 容差带后最低 log loss 选择。它不提供因果系数解释。
+- LightGBM 用两个紧凑叶节点设置和仅监控 AP 的早停。它保留原始 NaN 与观测零，`zero_as_missing=False`。树模型的复杂度控制与输入上截尾是不同机制。
+- 两层 MLP 是受控的表格神经基准，不复现论文中的更复杂架构，也不做序列学习。Dropout 抑制共同适配，较小学习率控制更新，梯度裁剪限制训练梯度范数；这些都不保证优于其他家族。
+- 所有目标使用自然类别比例，不做重采样或类别加权。ROC AUC 衡量排序，AP 更关注稀少正例，log loss 和 Brier 衡量概率质量。
+- 保存的缺失/零/截尾/对数/标志规则保持不变。稀疏字段经中位数填补和标准化后出现较大有限 z 值，并不自动等于预处理错误；本任务记录其 TRAIN/调优分布而不再次裁剪。
+
+## 运行与恢复
+
+完整顺序运行：
+```bash
+/opt/anaconda3/envs/home_credit/bin/python -u scripts/train_baseline_models.py --data-root /Users/haoguannan/Projects/home_credit/data --run-id first_full --models all --threads 4
+```
+单组合使用 `--models logit_T` 等名称，仍使用完整 TRAIN/调优成员。中断后加 `--resume`；只验证保存模型和预测则使用 `--verify-only`。终端日志显示阶段、候选和实际迭代/epoch。Activity Monitor 可查看系统级内存，但报告中的 `ru_maxrss` 是本进程累计峰值。
+
+模型重载必须同时使用注册表中的有序特征、对应保存表示和原预处理引用。Logit 加载 joblib；LightGBM 加载原生 booster 文本并指定选择轮次；MLP 按 architecture JSON 重建网络、加载 state_dict、调用 `eval()` 并在 `inference_mode` 下预测。
+
+后续校准、最终评估、解释/分组、审批与经济模拟均未在本任务执行。

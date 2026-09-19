@@ -35,9 +35,12 @@ models, and extensive demographic analyses are deferred.
 
 The analysis unit is an application record keyed by case_id.
 
-The primary design will use target-stratified random partitions with
-separate training, validation, calibration, policy-selection, and final
-test roles. Exact proportions and the random seed are not yet selected.
+The primary design uses researcher-approved target-stratified random
+partitions: 70% training, 15% validation, and 15% final evaluation. The
+validation partition is reserved approximately equally for tuning and
+calibration. Membership and seeds are frozen by the training-preparation
+pipeline. The first six TRAIN/validation-tuning model comparisons described
+below have now been trained; calibration and final evaluation remain frozen.
 
 A limited chronological supplement will compare GBDT(T) with GBDT(T+AD)
 for predictive performance and calibration.
@@ -130,12 +133,24 @@ and are retained unchanged.
 
 - [x] Establish execution rules and Git safeguards.
 - [x] Complete the initial base-table audit.
-- [ ] Verify feature-table structure and candidate feature sources.
-- [ ] Freeze evaluation partitions.
-- [ ] Build the application-level feature table.
-- [ ] Train and evaluate the six primary model comparisons.
+- [x] Verify feature-table structure and candidate feature sources.
+- [x] Build the application-level feature table.
+- [x] Freeze common evaluation partitions and prepare train-only model inputs.
+- [x] Train and compare the six primary model combinations on validation-tuning.
 - [ ] Complete the chronological GBDT supplement.
 - [ ] Implement approval and scenario-value evaluation.
 - [ ] Build and verify the aggregate-results Streamlit demonstration.
 
 There is no live demo or published code link yet.
+
+<!-- TASK09_RESULTS_START -->
+## First model training
+
+The six prespecified Logit, LightGBM, and MLP T/T+AD combinations were trained sequentially on the frozen outer TRAIN partition under run `first_full`. Reported scores are validation-tuning development metrics, not final evaluation results.
+
+```bash
+/opt/anaconda3/envs/home_credit/bin/python -u scripts/train_baseline_models.py --data-root /Users/haoguannan/Projects/home_credit/data --run-id first_full --models all --threads 4
+```
+
+See `docs/first_model_training.md` for the model contracts, aggregate results, and limitations.
+<!-- TASK09_RESULTS_END -->

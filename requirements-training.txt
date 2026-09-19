@@ -1,0 +1,11 @@
+# Task 09 local CPU training stack (verified installed versions)
+numpy==2.4.6
+pandas==3.0.5
+pyarrow==25.0.1
+scikit-learn==1.9.1
+lightgbm==4.7.0
+torch==2.14.0
+matplotlib==3.11.2
+seaborn==0.13.2
+joblib==1.6.0
+threadpoolctl==3.7.0
