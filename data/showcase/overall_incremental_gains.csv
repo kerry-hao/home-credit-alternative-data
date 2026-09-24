@@ -1,0 +1,4 @@
+algorithm_family,t_model_id,t_plus_ad_model_id,sample_count,roc_auc_gain,average_precision_gain,log_loss_gain,brier_gain,mean_calibrated_pd_change,gain_status,missing_metric_reason
+logit,logit_T,logit_T_plus_AD,228999,0.0168286435434437,0.0049208413280283,0.0016849657098294,0.0001133968815842,-1.718423358741672e-06,PASS,
+lightgbm,lightgbm_T,lightgbm_T_plus_AD,228999,0.015758449945019,0.0074200306057262,0.0018380453866979,0.0001462036035106,-8.296831756626766e-06,PASS,
+mlp,mlp_T,mlp_T_plus_AD,228999,0.0158466575798086,0.0052998003611104,0.0017399230692793,0.0001166288202947,-0.0002398101482479,PASS,

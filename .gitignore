@@ -16,7 +16,7 @@ config/local.*
 *.log
 
 # Local-only directories
-/data/
+/data/*
 /research_sources/
 /outputs/private/
 /models/
@@ -37,3 +37,7 @@ config/local.*
 *.pth
 *.npy
 *.npz
+
+# Reviewed aggregate data for the public Task 13 showcase only
+!/data/showcase/
+!/data/showcase/*.csv
