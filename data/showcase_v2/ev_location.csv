@@ -1,0 +1,197 @@
+model,grouping_id,grouping,group_order,group,n,defaults_women,defaults_men,status,g,se
+traditional,C1,PD decile (own model),1,D1,22900,55,17,not estimated,,
+traditional,C1,PD decile (own model),2,D2,22900,78,73,estimated,-0.5857379394641908,0.1632667527200591
+traditional,C1,PD decile (own model),3,D3,22900,114,125,estimated,-0.6952834897922769,0.1301647765606387
+traditional,C1,PD decile (own model),4,D4,22900,151,137,estimated,-0.4655084070003235,0.1188465255039574
+traditional,C1,PD decile (own model),5,D5,22900,211,186,estimated,-0.406144752925463,0.1015461823085174
+traditional,C1,PD decile (own model),6,D6,22899,278,264,estimated,-0.4117769023680547,0.0870738346421172
+traditional,C1,PD decile (own model),7,D7,22900,338,345,estimated,-0.4016274896572024,0.0778228445798535
+traditional,C1,PD decile (own model),8,D8,22900,444,434,estimated,-0.3394749669854168,0.068890115836781
+traditional,C1,PD decile (own model),9,D9,22900,651,639,estimated,-0.3581173513899859,0.057468691193339
+traditional,C1,PD decile (own model),10,D10,22900,1444,1215,estimated,-0.3319709179689606,0.0422519373806271
+with_ad,C1,PD decile (own model),1,D1,22900,25,24,not estimated,,
+with_ad,C1,PD decile (own model),2,D2,22900,69,50,estimated,-0.2720107203561243,0.1862145536402375
+with_ad,C1,PD decile (own model),3,D3,22900,96,90,estimated,-0.4912295357574744,0.1473325703839614
+with_ad,C1,PD decile (own model),4,D4,22900,128,146,estimated,-0.6416080579042821,0.1218545339910898
+with_ad,C1,PD decile (own model),5,D5,22900,167,215,estimated,-0.7684629511427017,0.1040826155470403
+with_ad,C1,PD decile (own model),6,D6,22899,256,251,estimated,-0.481262609696604,0.0899176787352276
+with_ad,C1,PD decile (own model),7,D7,22900,340,326,estimated,-0.4320992727487374,0.0787133711434768
+with_ad,C1,PD decile (own model),8,D8,22900,453,460,estimated,-0.4506924918154577,0.0676437315910091
+with_ad,C1,PD decile (own model),9,D9,22900,682,639,estimated,-0.4173492231669525,0.0568485639906281
+with_ad,C1,PD decile (own model),10,D10,22900,1548,1234,estimated,-0.374192263693119,0.0415674341383332
+traditional,C2,Age,1,<25,14219,383,433,estimated,-0.2011054114298065,0.0737603659128815
+traditional,C2,Age,2,25-34,56549,1013,1213,estimated,-0.402062919940485,0.0447232281397966
+traditional,C2,Age,3,35-44,54880,957,832,estimated,-0.3654654958612489,0.0497177653234954
+traditional,C2,Age,4,45-54,41625,651,515,estimated,-0.3492926521760663,0.0615258704872834
+traditional,C2,Age,5,55-64,38231,496,276,estimated,-0.1898017444945765,0.0776816202489102
+traditional,C2,Age,6,>=65,23495,264,166,estimated,-0.4836670397264829,0.1023519008421523
+with_ad,C2,Age,1,<25,14219,383,433,estimated,-0.2691832701252769,0.0740284322811741
+with_ad,C2,Age,2,25-34,56549,1013,1213,estimated,-0.5011236788657264,0.0448646945267413
+with_ad,C2,Age,3,35-44,54880,957,832,estimated,-0.4350015851050108,0.0499487091263654
+with_ad,C2,Age,4,45-54,41625,651,515,estimated,-0.4066570256278543,0.0617694583856594
+with_ad,C2,Age,5,55-64,38231,496,276,estimated,-0.2516872541446546,0.0776494999445286
+with_ad,C2,Age,6,>=65,23495,264,166,estimated,-0.4796523824990561,0.1026899574626977
+traditional,C3,Credit product type,1,CAL,51982,989,780,estimated,-0.4193209242186077,0.0496409714997203
+traditional,C3,Credit product type,2,COL,148411,2351,2212,estimated,-0.3713520216675751,0.0311061589395024
+traditional,C3,Credit product type,3,REL,28606,424,443,estimated,-0.3779683975339793,0.0705710288353149
+with_ad,C3,Credit product type,1,CAL,51982,989,780,estimated,-0.4583264492299623,0.0497399556779102
+with_ad,C3,Credit product type,2,COL,148411,2351,2212,estimated,-0.4529896721720015,0.031250143964861
+with_ad,C3,Credit product type,3,REL,28606,424,443,estimated,-0.4400827121755063,0.0707956225214886
+traditional,C4,Income type,1,EMPLOYED,44546,770,943,estimated,-0.3324920948774027,0.0507840841299378
+traditional,C4,Income type,2,HANDICAPPED_2,1077,16,18,not estimated,,
+traditional,C4,Income type,3,HANDICAPPED_3,753,12,9,not estimated,,
+traditional,C4,Income type,4,OTHER,1718,2,21,not estimated,,
+traditional,C4,Income type,5,PRIVATE_SECTOR_EMPLOYEE,73513,1258,1647,estimated,-0.3778861678554283,0.0392002972544954
+traditional,C4,Income type,6,RETIRED_PENSIONER,47011,613,239,estimated,-0.4093551154537526,0.0787085225570528
+traditional,C4,Income type,7,SALARIED_GOVT,56035,1023,493,estimated,-0.4964526079776393,0.0575688284782082
+traditional,C4,Income type,8,SELFEMPLOYED,4345,70,65,estimated,-0.5411519754382605,0.1795197483655684
+traditional,C4,Income type,9,__UNSEEN__,1,0,0,not estimated,,
+with_ad,C4,Income type,1,EMPLOYED,44546,770,943,estimated,-0.4201901736197138,0.0509891677582393
+with_ad,C4,Income type,2,HANDICAPPED_2,1077,16,18,not estimated,,
+with_ad,C4,Income type,3,HANDICAPPED_3,753,12,9,not estimated,,
+with_ad,C4,Income type,4,OTHER,1718,2,21,not estimated,,
+with_ad,C4,Income type,5,PRIVATE_SECTOR_EMPLOYEE,73513,1258,1647,estimated,-0.4679589103839049,0.0393458583489021
+with_ad,C4,Income type,6,RETIRED_PENSIONER,47011,613,239,estimated,-0.4890260731677346,0.0792925884209505
+with_ad,C4,Income type,7,SALARIED_GOVT,56035,1023,493,estimated,-0.5230756915247893,0.0577319256473472
+with_ad,C4,Income type,8,SELFEMPLOYED,4345,70,65,estimated,-0.5497470132163201,0.1800470192121299
+with_ad,C4,Income type,9,__UNSEEN__,1,0,0,not estimated,,
+traditional,C5,Recorded primary income,1,"Bin 1: <= 25,000",30724,634,464,estimated,-0.3456331906201018,0.0640176731327688
+traditional,C5,Recorded primary income,2,"Bin 2: (25,000, 38,000]",31195,544,464,estimated,-0.3869343017838892,0.0663935782086154
+traditional,C5,Recorded primary income,3,"Bin 3: (38,000, 50,000]",35895,585,476,estimated,-0.2886053915328928,0.0645968464558928
+traditional,C5,Recorded primary income,4,"Bin 4: (50,000, 70,000]",29336,485,387,estimated,-0.3425536603181621,0.0713473054886504
+traditional,C5,Recorded primary income,5,"Bin 5: > 70,000",25276,401,380,estimated,-0.5335474856968947,0.0760666074774629
+traditional,C5,Recorded primary income,6,Missing,76573,1115,1264,estimated,-0.3814291015412956,0.0424450248324326
+with_ad,C5,Recorded primary income,1,"Bin 1: <= 25,000",30724,634,464,estimated,-0.4032588942832453,0.0642179509052987
+with_ad,C5,Recorded primary income,2,"Bin 2: (25,000, 38,000]",31195,544,464,estimated,-0.4418302892700266,0.0666347723483648
+with_ad,C5,Recorded primary income,3,"Bin 3: (38,000, 50,000]",35895,585,476,estimated,-0.3564709555039909,0.0648402463730881
+with_ad,C5,Recorded primary income,4,"Bin 4: (50,000, 70,000]",29336,485,387,estimated,-0.4195283173093472,0.0717780283409718
+with_ad,C5,Recorded primary income,5,"Bin 5: > 70,000",25276,401,380,estimated,-0.6134048071431772,0.0763138511332465
+with_ad,C5,Recorded primary income,6,Missing,76573,1115,1264,estimated,-0.4568842731370951,0.0425546528331179
+traditional,C6,Applicant main income,1,"Bin 1: <= 30,000",48455,815,667,estimated,-0.3436476033377595,0.0543408148769471
+traditional,C6,Applicant main income,2,"Bin 2: (30,000, 42,000]",44374,697,623,estimated,-0.3375958367233155,0.0572797553808999
+traditional,C6,Applicant main income,3,"Bin 3: (42,000, 60,000]",62307,966,953,estimated,-0.4251747553472822,0.0475714464533308
+traditional,C6,Applicant main income,4,"Bin 4: (60,000, 80,000]",36176,588,553,estimated,-0.4266390703654228,0.0616165706881214
+traditional,C6,Applicant main income,5,"Bin 5: > 80,000",37687,698,639,estimated,-0.3361257220934907,0.0579910629468702
+with_ad,C6,Applicant main income,1,"Bin 1: <= 30,000",48455,815,667,estimated,-0.3941229495514006,0.0545157293884924
+with_ad,C6,Applicant main income,2,"Bin 2: (30,000, 42,000]",44374,697,623,estimated,-0.4029187075980566,0.0574180383045798
+with_ad,C6,Applicant main income,3,"Bin 3: (42,000, 60,000]",62307,966,953,estimated,-0.4941712579771093,0.0477828747208858
+with_ad,C6,Applicant main income,4,"Bin 4: (60,000, 80,000]",36176,588,553,estimated,-0.5005859799437498,0.0619103774950731
+with_ad,C6,Applicant main income,5,"Bin 5: > 80,000",37687,698,639,estimated,-0.4252655701359435,0.0582870462258149
+traditional,C7,Requested credit amount,1,"Bin 1: <= 17,404.4",45800,734,738,estimated,-0.3060099908161255,0.0539471868840368
+traditional,C7,Requested credit amount,2,"Bin 2: (17,404.4, 27,984]",45805,618,712,estimated,-0.5015650280379385,0.0570584558206003
+traditional,C7,Requested credit amount,3,"Bin 3: (27,984, 43,899.9]",45794,699,568,estimated,-0.2823913684749313,0.0585978254034815
+traditional,C7,Requested credit amount,4,"Bin 4: (43,899.9, 76,193.4]",45800,688,574,estimated,-0.4445114776864237,0.0589650446411649
+traditional,C7,Requested credit amount,5,"Bin 5: > 76,193.4",45800,1025,843,estimated,-0.3686371436875391,0.0492992820444121
+with_ad,C7,Requested credit amount,1,"Bin 1: <= 17,404.4",45800,734,738,estimated,-0.3762093144502515,0.0541639769743411
+with_ad,C7,Requested credit amount,2,"Bin 2: (17,404.4, 27,984]",45805,618,712,estimated,-0.5783682704119543,0.0571842173813462
+with_ad,C7,Requested credit amount,3,"Bin 3: (27,984, 43,899.9]",45794,699,568,estimated,-0.3505210334005361,0.0587010569765872
+with_ad,C7,Requested credit amount,4,"Bin 4: (43,899.9, 76,193.4]",45800,688,574,estimated,-0.5286420692985597,0.0592715903994477
+with_ad,C7,Requested credit amount,5,"Bin 5: > 76,193.4",45800,1025,843,estimated,-0.4217293040470176,0.0496119707408936
+traditional,C8,"Max days past due, last 24 months",1,Bin 1: <= 0,121577,1475,1609,estimated,-0.4687859266443984,0.0373490748635004
+traditional,C8,"Max days past due, last 24 months",2,"Bin 2: (0, 3]",28879,470,353,estimated,-0.3873647280946329,0.0730246299606921
+traditional,C8,"Max days past due, last 24 months",3,Bin 3: > 3,32525,1318,921,estimated,-0.309488010746623,0.0458980351326604
+traditional,C8,"Max days past due, last 24 months",4,Missing,46018,501,552,estimated,-0.237459874937278,0.0636200987986276
+with_ad,C8,"Max days past due, last 24 months",1,Bin 1: <= 0,121577,1475,1609,estimated,-0.5351986960824295,0.0374281831886492
+with_ad,C8,"Max days past due, last 24 months",2,"Bin 2: (0, 3]",28879,470,353,estimated,-0.4487695429297675,0.0733520765630135
+with_ad,C8,"Max days past due, last 24 months",3,Bin 3: > 3,32525,1318,921,estimated,-0.3641574239889434,0.0460661098264255
+with_ad,C8,"Max days past due, last 24 months",4,Missing,46018,501,552,estimated,-0.344279402540585,0.0633875929339097
+traditional,C9,"Bureau queries, last 360 days",1,Bin 1: <= 1,57324,647,727,estimated,-0.4647906648323917,0.0559513906471146
+traditional,C9,"Bureau queries, last 360 days",2,"Bin 2: (1, 2]",27646,357,301,estimated,-0.2789938521538214,0.0812755027715196
+traditional,C9,"Bureau queries, last 360 days",3,"Bin 3: (2, 4]",42896,599,553,estimated,-0.3965062809670933,0.0612751822874123
+traditional,C9,"Bureau queries, last 360 days",4,"Bin 4: (4, 8]",45782,811,695,estimated,-0.3665484868040729,0.0538269552485131
+traditional,C9,"Bureau queries, last 360 days",5,Bin 5: > 8,34265,1019,772,estimated,-0.3304202196611823,0.0505059512511689
+traditional,C9,"Bureau queries, last 360 days",6,Missing,21086,331,387,estimated,-0.3933265224304007,0.0778686679754697
+with_ad,C9,"Bureau queries, last 360 days",1,Bin 1: <= 1,57324,647,727,estimated,-0.5393748634914988,0.05608541593298
+with_ad,C9,"Bureau queries, last 360 days",2,"Bin 2: (1, 2]",27646,357,301,estimated,-0.3604092629766975,0.0815111753398205
+with_ad,C9,"Bureau queries, last 360 days",3,"Bin 3: (2, 4]",42896,599,553,estimated,-0.4833238389853913,0.0615391530683947
+with_ad,C9,"Bureau queries, last 360 days",4,"Bin 4: (4, 8]",45782,811,695,estimated,-0.4377143438802637,0.0540689789819714
+with_ad,C9,"Bureau queries, last 360 days",5,Bin 5: > 8,34265,1019,772,estimated,-0.3825865292978119,0.0506720243657732
+with_ad,C9,"Bureau queries, last 360 days",6,Missing,21086,331,387,estimated,-0.4430609047680711,0.0782858444672519
+traditional,C10,Credit history length,1,0_to_0_5,64440,1217,1228,estimated,-0.3903026244154237,0.0423835903654688
+traditional,C10,Credit history length,2,0_5_to_1,31251,595,486,estimated,-0.2901853450061246,0.0639513909365224
+traditional,C10,Credit history length,3,1_to_2,36639,632,539,estimated,-0.3209763009798102,0.0612834280367442
+traditional,C10,Credit history length,4,2_to_3,24999,417,384,estimated,-0.4376510222311037,0.0739637615156247
+traditional,C10,Credit history length,5,3_to_4,14697,212,177,estimated,-0.3053034822700055,0.1065950944133824
+traditional,C10,Credit history length,6,4_to_5,16478,219,172,estimated,-0.2547339996406709,0.1057704700839657
+traditional,C10,Credit history length,7,gt_5,40495,472,449,estimated,-0.484231871044579,0.0681876177480152
+with_ad,C10,Credit history length,1,0_to_0_5,64440,1217,1228,estimated,-0.4572969874924879,0.0425181331810453
+with_ad,C10,Credit history length,2,0_5_to_1,31251,595,486,estimated,-0.3416398122576478,0.0643561180401683
+with_ad,C10,Credit history length,3,1_to_2,36639,632,539,estimated,-0.3995335475245243,0.0615051895439921
+with_ad,C10,Credit history length,4,2_to_3,24999,417,384,estimated,-0.512294750308614,0.0742402242778815
+with_ad,C10,Credit history length,5,3_to_4,14697,212,177,estimated,-0.3816635288691048,0.1072555957597033
+with_ad,C10,Credit history length,6,4_to_5,16478,219,172,estimated,-0.3355088897211761,0.1060030383593521
+with_ad,C10,Credit history length,7,gt_5,40495,472,449,estimated,-0.5486157557973516,0.0683630015730829
+traditional,C11,Active credits,1,0,146370,2177,2349,estimated,-0.4023372739162684,0.0309511646983976
+traditional,C11,Active credits,2,1,60750,1102,788,estimated,-0.3118930593857696,0.0489130894436521
+traditional,C11,Active credits,3,2,19004,414,261,estimated,-0.4026016697166549,0.0830598215884413
+traditional,C11,Active credits,4,3_plus,2875,71,37,estimated,-0.4358436581246386,0.2145296517392025
+with_ad,C11,Active credits,1,0,146370,2177,2349,estimated,-0.4717585895541484,0.0310266002353482
+with_ad,C11,Active credits,2,1,60750,1102,788,estimated,-0.3780490314973652,0.0491513335143952
+with_ad,C11,Active credits,3,2,19004,414,261,estimated,-0.4769286614420955,0.0839032622527249
+with_ad,C11,Active credits,4,3_plus,2875,71,37,estimated,-0.5148550807849083,0.2196699866778994
+traditional,C12,AD richness,1,0,17190,366,370,estimated,-0.4544099105832774,0.0772835280678053
+traditional,C12,AD richness,2,1,191459,3048,2870,estimated,-0.3487950611889733,0.0271379230139226
+traditional,C12,AD richness,3,2,12456,204,115,estimated,-0.5245307645702584,0.1217763585575106
+traditional,C12,AD richness,4,3,7894,146,80,estimated,-0.4292666557698311,0.1449221893510321
+with_ad,C12,AD richness,1,0,17190,366,370,estimated,-0.4730480800652634,0.0775190357558791
+with_ad,C12,AD richness,2,1,191459,3048,2870,estimated,-0.4429069624730611,0.0272497569458162
+with_ad,C12,AD richness,3,2,12456,204,115,estimated,-0.5740084336420879,0.1224513384266609
+with_ad,C12,AD richness,4,3,7894,146,80,estimated,-0.4421721421752072,0.1472440266324384
+traditional,C13,Total tax deductions,1,"Bin 1: <= 1,700",17358,447,337,estimated,-0.3076506051408538,0.0754660186275635
+traditional,C13,Total tax deductions,2,"Bin 2: (1,700, 6,067.38]",16908,332,277,estimated,-0.480724943823917,0.0844182206139798
+traditional,C13,Total tax deductions,3,"Bin 3: (6,067.38, 11,382.3]",17132,296,237,estimated,-0.3700885786429208,0.0906819334664379
+traditional,C13,Total tax deductions,4,"Bin 4: (11,382.3, 19,666]",17133,227,300,estimated,-0.516358459707207,0.0918976158006556
+traditional,C13,Total tax deductions,5,"Bin 5: > 19,666",17133,89,194,estimated,-0.4551522222249172,0.1316803870638846
+traditional,C13,Total tax deductions,6,Missing,143335,2373,2090,estimated,-0.4056305624362379,0.0313797349237174
+with_ad,C13,Total tax deductions,1,"Bin 1: <= 1,700",17358,447,337,estimated,-0.3166309652918835,0.0756732021020907
+with_ad,C13,Total tax deductions,2,"Bin 2: (1,700, 6,067.38]",16908,332,277,estimated,-0.5001134402987577,0.0848098309850673
+with_ad,C13,Total tax deductions,3,"Bin 3: (6,067.38, 11,382.3]",17132,296,237,estimated,-0.3938082466444057,0.091036924008921
+with_ad,C13,Total tax deductions,4,"Bin 4: (11,382.3, 19,666]",17133,227,300,estimated,-0.5443211898212049,0.0921201957720344
+with_ad,C13,Total tax deductions,5,"Bin 5: > 19,666",17133,89,194,estimated,-0.4866058054961018,0.131776143997265
+with_ad,C13,Total tax deductions,6,Missing,143335,2373,2090,estimated,-0.458130743850104,0.0314816339340943
+traditional,C14a,C14: Client loan-payment count,1,Bin 1: <= 12,122777,1601,1692,estimated,-0.4072147353909544,0.0360670201290862
+traditional,C14a,C14: Client loan-payment count,2,"Bin 2: (12, 16]",12972,103,99,estimated,-0.4066051407596933,0.1451916415836697
+traditional,C14a,C14: Client loan-payment count,3,"Bin 3: (16, 24]",61690,1287,1017,estimated,-0.3121694823520579,0.0440823242970125
+traditional,C14a,C14: Client loan-payment count,4,Bin 4: > 24,24871,656,495,estimated,-0.387735307870679,0.0633919536521386
+traditional,C14a,C14: Client loan-payment count,5,Missing,6689,117,132,estimated,-0.5933550149932022,0.130624692026054
+with_ad,C14a,C14: Client loan-payment count,1,Bin 1: <= 12,122777,1601,1692,estimated,-0.4851781862501963,0.0361748171184009
+with_ad,C14a,C14: Client loan-payment count,2,"Bin 2: (12, 16]",12972,103,99,estimated,-0.4757456137345114,0.1462548489367062
+with_ad,C14a,C14: Client loan-payment count,3,"Bin 3: (16, 24]",61690,1287,1017,estimated,-0.3810831274591496,0.0442787979090587
+with_ad,C14a,C14: Client loan-payment count,4,Bin 4: > 24,24871,656,495,estimated,-0.432746068722523,0.0635578587420791
+with_ad,C14a,C14: Client loan-payment count,5,Missing,6689,117,132,estimated,-0.6355037012376271,0.1311745340648827
+traditional,C14b,C14: Monthly annuity of the current application,1,"Bin 1: <= 1,778.8",45803,721,702,estimated,-0.3094097271296303,0.0548700757569883
+traditional,C14b,C14: Monthly annuity of the current application,2,"Bin 2: (1,778.8, 2,608]",45805,639,663,estimated,-0.4100371165841937,0.0575677099909778
+traditional,C14b,C14: Monthly annuity of the current application,3,"Bin 3: (2,608, 3,828]",45795,763,637,estimated,-0.3399697124941118,0.0558875961892718
+traditional,C14b,C14: Monthly annuity of the current application,4,"Bin 4: (3,828, 5,975.28]",45796,752,657,estimated,-0.4579824324303352,0.0559502964966403
+traditional,C14b,C14: Monthly annuity of the current application,5,"Bin 5: > 5,975.28",45800,889,776,estimated,-0.3831836232052095,0.0517613289750511
+with_ad,C14b,C14: Monthly annuity of the current application,1,"Bin 1: <= 1,778.8",45803,721,702,estimated,-0.377088448371851,0.0550868113856053
+with_ad,C14b,C14: Monthly annuity of the current application,2,"Bin 2: (1,778.8, 2,608]",45805,639,663,estimated,-0.487280592316556,0.0576728504295645
+with_ad,C14b,C14: Monthly annuity of the current application,3,"Bin 3: (2,608, 3,828]",45795,763,637,estimated,-0.4154806866601389,0.0560643433344866
+with_ad,C14b,C14: Monthly annuity of the current application,4,"Bin 4: (3,828, 5,975.28]",45796,752,657,estimated,-0.5344996975317097,0.0562977931504535
+with_ad,C14b,C14: Monthly annuity of the current application,5,"Bin 5: > 5,975.28",45800,889,776,estimated,-0.4354815570209288,0.0520343365349527
+traditional,C14c,C14: Observed active-credit count,1,Bin 1: <= 0,146370,2177,2349,estimated,-0.4023372739162684,0.0309511646983976
+traditional,C14c,C14: Observed active-credit count,2,"Bin 2: (0, 1]",60750,1102,788,estimated,-0.3118930593857696,0.0489130894436521
+traditional,C14c,C14: Observed active-credit count,3,Bin 3: > 1,21879,485,298,estimated,-0.4025999056025565,0.077415372965266
+with_ad,C14c,C14: Observed active-credit count,1,Bin 1: <= 0,146370,2177,2349,estimated,-0.4717585895541484,0.0310266002353482
+with_ad,C14c,C14: Observed active-credit count,2,"Bin 2: (0, 1]",60750,1102,788,estimated,-0.3780490314973652,0.0491513335143952
+with_ad,C14c,C14: Observed active-credit count,3,Bin 3: > 1,21879,485,298,estimated,-0.4777006803443226,0.0783216927952163
+traditional,C14d,C14: Recorded current debt,1,Bin 1: <= 0,153002,2202,2377,estimated,-0.3951317700124027,0.0307566035380447
+traditional,C14d,C14: Recorded current debt,2,"Bin 2: (0, 22,908.4]",30197,490,397,estimated,-0.3088292443614684,0.070109602573
+traditional,C14d,C14: Recorded current debt,3,"Bin 3: > 22,908.4",45799,1072,661,estimated,-0.3848886278761176,0.0524049980499486
+traditional,C14d,C14: Recorded current debt,4,Missing,1,0,0,not estimated,,
+with_ad,C14d,C14: Recorded current debt,1,Bin 1: <= 0,153002,2202,2377,estimated,-0.4667700651626819,0.0308268791099014
+with_ad,C14d,C14: Recorded current debt,2,"Bin 2: (0, 22,908.4]",30197,490,397,estimated,-0.3794069093280739,0.0704327700530296
+with_ad,C14d,C14: Recorded current debt,3,"Bin 3: > 22,908.4",45799,1072,661,estimated,-0.4462314201167226,0.052832869892744
+with_ad,C14d,C14: Recorded current debt,4,Missing,1,0,0,not estimated,,
+traditional,C14e,C14: Previous application credit amount,1,"Bin 1: <= 10,956.8",32586,600,565,estimated,-0.3819064932675811,0.06101304228223
+traditional,C14e,C14: Previous application credit amount,2,"Bin 2: (10,956.8, 20,000]",35832,639,577,estimated,-0.3499090712264636,0.06042644697113
+traditional,C14e,C14: Previous application credit amount,3,"Bin 3: (20,000, 31,594]",29342,489,413,estimated,-0.3909254348992747,0.0704081168418377
+traditional,C14e,C14: Previous application credit amount,4,"Bin 4: (31,594, 57,696]",32584,535,378,estimated,-0.3813954086494043,0.0705251978499082
+traditional,C14e,C14: Previous application credit amount,5,"Bin 5: > 57,696",32585,617,417,estimated,-0.4040483789475514,0.0668887787705636
+traditional,C14e,C14: Previous application credit amount,6,Missing,66070,884,1085,estimated,-0.3757730155869093,0.0467403539082514
+with_ad,C14e,C14: Previous application credit amount,1,"Bin 1: <= 10,956.8",32586,600,565,estimated,-0.4509558472242537,0.0612328899597498
+with_ad,C14e,C14: Previous application credit amount,2,"Bin 2: (10,956.8, 20,000]",35832,639,577,estimated,-0.4136458948012408,0.0605402127378369
+with_ad,C14e,C14: Previous application credit amount,3,"Bin 3: (20,000, 31,594]",29342,489,413,estimated,-0.4596842010987992,0.0706465456658082
+with_ad,C14e,C14: Previous application credit amount,4,"Bin 4: (31,594, 57,696]",32584,535,378,estimated,-0.4560421911208397,0.0709798024137212
+with_ad,C14e,C14: Previous application credit amount,5,"Bin 5: > 57,696",32585,617,417,estimated,-0.454952692983048,0.0672776228296486
+with_ad,C14e,C14: Previous application credit amount,6,Missing,66070,884,1085,estimated,-0.4546658241584477,0.0468059171921682

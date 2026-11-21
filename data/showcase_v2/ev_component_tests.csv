@@ -1,0 +1,15 @@
+model,row,value
+traditional,wald_all_h_zero_chi2,7.147086090057659
+traditional,wald_all_h_zero_df,7
+traditional,wald_all_h_zero_p,0.41372780722766034
+traditional,wald_all_h_equal_chi2,5.012296761099668
+traditional,wald_all_h_equal_df,6
+traditional,wald_all_h_equal_p,0.5422369327011831
+with_ad,wald_all_h_zero_chi2,11.722844903374767
+with_ad,wald_all_h_zero_df,10
+with_ad,wald_all_h_zero_p,0.3040336458004075
+with_ad,wald_all_h_equal_chi2,7.074144214065452
+with_ad,wald_all_h_equal_df,9
+with_ad,wald_all_h_equal_p,0.6294000308354119
+traditional,g_female,-0.4348130201470231
+with_ad,g_female,-0.5218321646127045

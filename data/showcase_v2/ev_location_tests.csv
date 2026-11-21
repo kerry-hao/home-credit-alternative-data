@@ -1,0 +1,37 @@
+grouping_id,grouping,model,n_groups,n_estimated,p
+C1,PD decile (own model),traditional,10,9,0.2627691577026952
+C1,PD decile (own model),with_ad,10,9,0.0352946651063407
+C2,Age,traditional,6,6,0.0434059885679693
+C2,Age,with_ad,6,6,0.0278363028872845
+C3,Credit product type,traditional,3,3,0.7121581005698534
+C3,Credit product type,with_ad,3,3,0.9779248762768749
+C4,Income type,traditional,9,5,0.2393054554663924
+C4,Income type,with_ad,9,5,0.7255588789721853
+C5,Recorded primary income,traditional,6,6,0.2516581215568867
+C5,Recorded primary income,with_ad,6,6,0.1951057786276636
+C6,Applicant main income,traditional,5,5,0.5543927493986162
+C6,Applicant main income,with_ad,5,5,0.4951526217098494
+C7,Requested credit amount,traditional,5,5,0.0336219232085381
+C7,Requested credit amount,with_ad,5,5,0.0185570177813112
+C8,"Max days past due, last 24 months",traditional,4,4,0.004566001471152
+C8,"Max days past due, last 24 months",with_ad,4,4,0.0096917005716395
+C9,"Bureau queries, last 360 days",traditional,6,6,0.4221119380437534
+C9,"Bureau queries, last 360 days",with_ad,6,6,0.3229004959321097
+C10,Credit history length,traditional,7,7,0.2667938085164649
+C10,Credit history length,with_ad,7,7,0.2633404151234207
+C11,Active credits,traditional,4,4,0.4572736944607967
+C11,Active credits,with_ad,4,4,0.4198162242067207
+C12,AD richness,traditional,4,4,0.3104991848234099
+C12,AD richness,with_ad,4,4,0.757369100083906
+C13,Total tax deductions,traditional,6,6,0.519733722626914
+C13,Total tax deductions,with_ad,6,6,0.4125612647255032
+C14a,C14: Client loan-payment count,traditional,5,5,0.2266472575171114
+C14a,C14: Client loan-payment count,with_ad,5,5,0.2420939499956003
+C14b,C14: Monthly annuity of the current application,traditional,5,5,0.3562760553423577
+C14b,C14: Monthly annuity of the current application,with_ad,5,5,0.3002968961766127
+C14c,C14: Observed active-credit count,traditional,3,3,0.2803106021037994
+C14c,C14: Observed active-credit count,with_ad,3,3,0.2521543693519467
+C14d,C14: Recorded current debt,traditional,4,3,0.5287119484635079
+C14d,C14: Recorded current debt,with_ad,4,3,0.5212637527587483
+C14e,C14: Previous application credit amount,traditional,6,6,0.9950818179200956
+C14e,C14: Previous application credit amount,with_ad,6,6,0.9954528487005282

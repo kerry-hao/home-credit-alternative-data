@@ -22,6 +22,7 @@ config/local.*
 /models/
 /artifacts/
 /tmp/
+/_local/
 
 # Data, source documents, and serialized models
 *.csv
@@ -38,6 +39,8 @@ config/local.*
 *.npy
 *.npz
 
-# Reviewed aggregate data for the public Task 13 showcase only
+# Reviewed aggregate data for the public showcase only
 !/data/showcase/
 !/data/showcase/*.csv
+!/data/showcase_v2/
+!/data/showcase_v2/*.csv

@@ -1,0 +1,13 @@
+calibration,loss_to_gain_ratio,ad_increment_realised_value
+blind,2,37.0
+blind,5,155.0
+blind,10,738.0
+blind,20,3579.0
+blind,30,6064.0
+blind,50,7180.0
+aware,2,28.0
+aware,5,34.0
+aware,10,960.0
+aware,20,4158.0
+aware,30,6866.0
+aware,50,8812.0
