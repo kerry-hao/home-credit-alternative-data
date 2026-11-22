@@ -10,8 +10,14 @@ CHART_CONFIG = {"displayModeBar": False, "responsive": True}
 
 
 @st.cache_data(show_spinner=False)
+def _read(signature: tuple) -> dict[str, pd.DataFrame]:
+    return {name.removesuffix(".csv"): pd.read_csv(DATA / name) for name, _, _ in signature}
+
+
 def load() -> dict[str, pd.DataFrame]:
-    return {p.stem: pd.read_csv(p) for p in DATA.glob("*.csv")}
+    """Read every aggregate table. The cache key changes whenever a file is added, removed or edited."""
+    signature = tuple(sorted((p.name, p.stat().st_size, p.stat().st_mtime_ns) for p in DATA.glob("*.csv")))
+    return _read(signature)
 
 
 def plot(fig) -> None:
