@@ -59,3 +59,31 @@ def table(header: list[str], rows: list, align: list[str] | None = None, note: s
     if note:
         html += f'<p class="tbl-note">{note}</p>'
     st.markdown(html, unsafe_allow_html=True)
+
+
+def doc_table(t: dict) -> None:
+    """Render a table extracted from the Word write-up, keeping its header spans and panel rows."""
+    import html as _h
+
+    def cell(c, tag, first, extra=""):
+        cls = []
+        if c.get("rule") and c.get("span", 1) > 1 and tag == "th":
+            cls.append("rule")
+        align = "left" if first else "center"
+        span = f' colspan="{c["span"]}"' if c.get("span", 1) > 1 else ""
+        txt = _h.escape(c["text"])
+        return f'<{tag}{span} class="{" ".join(cls)}" style="text-align:{align}"{extra}>{txt}</{tag}>'
+
+    ncol = sum(c["span"] for c in t["header"][-1])
+    head = ""
+    for r in t["header"]:
+        head += "<tr>" + "".join(cell(c, "th", j == 0) for j, c in enumerate(r)) + "</tr>"
+    body = ""
+    for r in t["body"]:
+        if len(r) == 1 and r[0]["span"] == ncol:
+            body += f'<tr class="panel"><td colspan="{ncol}">{_h.escape(r[0]["text"])}</td></tr>'
+        else:
+            body += "<tr>" + "".join(cell(c, "td", j == 0) for j, c in enumerate(r)) + "</tr>"
+    st.markdown(
+        f'<div class="tbl-wrap"><table class="tbl doc"><thead>{head}</thead><tbody>{body}</tbody></table></div>'
+        f'<p class="tbl-note"><i>Note:</i> {_h.escape(t["note"])}</p>', unsafe_allow_html=True)

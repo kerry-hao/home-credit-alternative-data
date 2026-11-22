@@ -76,6 +76,19 @@ CSS = f"""
   .tbl tbody tr:last-child td {{ border-bottom: 1.5px solid {INK} !important; }}
   .tbl tr.panel td {{ font-style: italic; padding-top: 12px; }}
   .tbl-note {{ font-size: .85rem; color: {INK_2}; margin: .4rem 0 0; line-height: 1.45; max-width: 860px; }}
+  .tbl.doc {{ font-size: .9rem; }}
+  .tbl.doc thead th {{ border-top: none !important; border-bottom: none !important; font-weight: 600; padding: 6px 10px; }}
+  .tbl.doc thead tr:first-child th {{ border-top: 1.5px solid {INK} !important; }}
+  .tbl.doc thead tr:last-child th {{ border-bottom: 1px solid {INK} !important; }}
+  .tbl.doc thead th.rule {{ border-bottom: 1px solid {INK} !important; }}
+  .tbl.doc td {{ padding: 3px 10px; white-space: nowrap; }}
+  .tbl.doc td:first-child {{ white-space: normal; }}
+  .cap {{ font-size: 1.05rem; color: {INK}; margin: .2rem 0 .3rem; }}
+  .cap b {{ font-weight: 600; }}
+  .toc a {{ color: {INK}; text-decoration: none; border-bottom: 1px solid {GRID}; }}
+  .toc a:hover {{ border-bottom-color: {INK}; }}
+  .toc div {{ margin: .25rem 0; font-size: 1rem; }}
+  .eq-def {{ font-size: .88rem; color: {INK_2}; margin: -.2rem 0 .6rem; line-height: 1.45; }}
   [data-testid="stWidgetLabel"] p {{ font-size: .95rem; color: {INK}; }}
   @media (max-width: 900px) {{
     .tiles, .pair {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }}

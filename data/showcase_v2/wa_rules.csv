@@ -1,0 +1,4 @@
+rule,approved_T,approved_T_plus_AD,defaults_T,defaults_T_plus_AD,value_T,value_T_plus_AD,value_change,value_change_ci_lo,value_change_ci_hi
+R1,114499,114499,1147,1010,78942.0,83189.0,4247.0,2727.225,5828.0
+R2,102543,119846,930,1110,73713.0,85436.0,11723.0,10239.0,13119.55
+R3,158170,158902,2314,2142,86436.0,92500.0,6064.0,4286.9,7840.0

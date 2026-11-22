@@ -245,7 +245,7 @@ base_layout(fig, height=330, title="Default rate of the applicants switched by a
 fig.update_layout(showlegend=True, margin=dict(t=64), legend=dict(orientation="h", x=0, y=1.1, xanchor="left",
                                                                      yanchor="bottom"))
 fig.update_annotations(font=dict(size=14, color=INK))
-fig.update_xaxes(ticksuffix="%", tickvals=[40, 50, 60, 70, 80], title_text="Share of applicants approved")
+fig.update_xaxes(tickvals=[40, 50, 60, 70, 80], ticktext=["40%", "50%", "60%", "70%", "80%"], title_text="Share of applicants approved")
 fig.update_yaxes(ticksuffix="%", row=1, col=1, title_text="Default rate")
 chart_col, side, _ = st.columns([0.62, 0.24, 0.14], gap="large")
 with chart_col:

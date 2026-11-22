@@ -175,7 +175,7 @@ fig.add_hline(y=0, line=dict(color=INK, width=1))
 base_layout(fig, height=320, title="Approval shift caused by alternative data, women minus men")
 fig.update_layout(showlegend=True, margin=dict(t=40), legend=dict(orientation="h", x=0, y=1.02, xanchor="left",
                                                                     yanchor="bottom"))
-fig.update_xaxes(range=[39, 81], tickvals=[40, 50, 60, 70, 80], ticksuffix="%", title_text="Share of applicants approved")
+fig.update_xaxes(range=[39, 81], tickvals=[40, 50, 60, 70, 80], ticktext=["40%", "50%", "60%", "70%", "80%"], title_text="Share of applicants approved")
 fig.update_yaxes(tickvals=[0, -1, -2, -3, -4], ticktext=["0 pp", "\u22121 pp", "\u22122 pp", "\u22123 pp", "\u22124 pp"],
                  title_text="Women's change minus men's")
 with chart_col:

@@ -10,6 +10,8 @@ page = st.navigation(
     [
         st.Page("views/story.py", title="Story", default=True),
         st.Page("views/evidence.py", title="Evidence"),
+        st.Page("views/regressions.py", title="Regressions"),
+        st.Page("views/why_ad.py", title="Why AD helps"),
         st.Page("views/method.py", title="Method"),
     ],
     position="top",
